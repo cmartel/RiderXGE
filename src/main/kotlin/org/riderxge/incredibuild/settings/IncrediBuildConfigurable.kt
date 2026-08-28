@@ -91,6 +91,21 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                 row { checkBox("Activate the IncrediBuild tool window when a build starts").bindSelected(state::activateToolWindow) }
                 row { checkBox("Beep when the build completes (/BEEP)").bindSelected(state::beepOnFinish) }
             }
+            group("Troubleshooting") {
+                row { checkBox("Timestamp every output line").bindSelected(state::timestampOutput) }
+                row {
+                    checkBox("Write a detailed MSBuild log for the IncrediBuild phase").bindSelected(state::detailedMsBuildLog)
+                        .comment("Adds /flp:LogFile=<solution dir>/incredibuild-msbuild.log;Verbosity=detailed, which records why each target/file was (re)built.")
+                }
+                row {
+                    checkBox("Run the Rider phase in diagnostics mode").bindSelected(state::riderDiagnosticsBuild)
+                        .comment("Hybrid mode only: Rider builds the managed projects with detailed MSBuild output in its Build window.")
+                }
+                row {
+                    checkBox("Explain dependency resolution").bindSelected(state::explainDependencies)
+                        .comment("Prints how the C++ dispatch list was derived: roots, resolved/unresolved references and configuration exclusions.")
+                }
+            }
         }
     }
 }

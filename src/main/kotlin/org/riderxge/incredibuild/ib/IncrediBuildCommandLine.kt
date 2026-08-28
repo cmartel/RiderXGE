@@ -33,6 +33,8 @@ class IncrediBuildCommandLine(
         val title: String? = null,
         /** For `.slnx` (unsupported by BuildConsole's VS syntax) the build goes through `/COMMAND=msbuild ...`. */
         val msBuildExe: Path? = null,
+        /** When set, MSBuild writes a detailed file log there (`/flp:LogFile=...;Verbosity=detailed`). */
+        val detailedLogFile: Path? = null,
     )
 
     val exePath: String get() = buildConsole.toString()
@@ -47,7 +49,7 @@ class IncrediBuildCommandLine(
             if (spec.projectNames.isNotEmpty()) args += "/PRJ=${spec.projectNames.joinToString(",")}"
             if (spec.withoutDependencies) args += "/NORECURSE"
             settings.buildEngine.switch?.let { args += it }
-            val msbuildArgs = msBuildArguments()
+            val msbuildArgs = msBuildArguments(spec)
             if (settings.buildEngine != BuildEngine.DEVENV && msbuildArgs.isNotEmpty()) args += "/MSBUILDARGS=$msbuildArgs"
         } else {
             // .slnx or a single project file: drive MSBuild directly under IncrediBuild's automatic interception.
@@ -58,7 +60,7 @@ class IncrediBuildCommandLine(
             cmd.append(" \"/p:Configuration=").append(spec.configuration).append('"')
             cmd.append(" \"/p:Platform=").append(spec.platform).append('"')
             cmd.append(" /m /nologo")
-            msBuildArguments().takeIf { it.isNotEmpty() }?.let { cmd.append(' ').append(it) }
+            msBuildArguments(spec).takeIf { it.isNotEmpty() }?.let { cmd.append(' ').append(it) }
             args += "/COMMAND=$cmd"
         }
 
@@ -85,10 +87,11 @@ class IncrediBuildCommandLine(
     }
 
     /** `/restore` (when enabled) followed by the user's additional MSBuild arguments. */
-    private fun msBuildArguments(): String {
+    private fun msBuildArguments(spec: Spec): String {
         val user = settings.msBuildArgs?.trim().orEmpty()
         val restore = if (settings.restorePackages && !user.contains("/restore", ignoreCase = true) && !user.contains("-restore", ignoreCase = true)) "/restore" else ""
-        return listOf(restore, user).filter { it.isNotEmpty() }.joinToString(" ")
+        val log = spec.detailedLogFile?.let { "/flp:LogFile=${quoteForShell(it.toString())};Verbosity=detailed" } ?: ""
+        return listOf(restore, log, user).filter { it.isNotEmpty() }.joinToString(" ")
     }
 
     companion object {

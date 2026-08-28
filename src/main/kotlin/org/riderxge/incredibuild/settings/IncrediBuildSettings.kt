@@ -48,6 +48,16 @@ class IncrediBuildSettingsState : BaseState() {
     var standalone by enum(TriState.DEFAULT)
     var activateToolWindow by property(true)
     var beepOnFinish by property(false)
+
+    // --- Troubleshooting ---
+    /** Prefix every line in the IncrediBuild tool window with a wall-clock timestamp. */
+    var timestampOutput by property(false)
+    /** Write a detailed MSBuild file log for the BuildConsole phase (`/flp:Verbosity=detailed`) next to the solution. */
+    var detailedMsBuildLog by property(false)
+    /** Run the Rider phase of a hybrid build in Rider's diagnostics mode (detailed MSBuild output in the Build window). */
+    var riderDiagnosticsBuild by property(false)
+    /** Explain how the C++ dispatch list was derived (roots, references, exclusions). */
+    var explainDependencies by property(false)
 }
 
 @Service(Service.Level.APP)

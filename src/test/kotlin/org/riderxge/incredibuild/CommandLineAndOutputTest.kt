@@ -79,6 +79,16 @@ class CommandLineAndOutputTest {
     }
 
     @Test
+    fun detailedLogIsPassedToMsBuild() {
+        val settings = IncrediBuildSettingsState().apply { showAgent = false; showTime = false; restorePackages = false }
+        val spec = IncrediBuildCommandLine.Spec(
+            Paths.get("C:/src/Demo/Demo.sln"), BuildOperation.BUILD, "Debug", "x64",
+            detailedLogFile = Paths.get("C:/src/My Demo/incredibuild-msbuild.log")
+        )
+        assertTrue("/MSBUILDARGS=/flp:LogFile=\"C:\\src\\My Demo\\incredibuild-msbuild.log\";Verbosity=detailed" in IncrediBuildCommandLine(exe, settings).build(spec))
+    }
+
+    @Test
     fun splitsQuotedExtraArgs() {
         assertEquals(listOf("/A", "/B=x y", "/C"), IncrediBuildCommandLine.splitExtraArgs("  /A \"/B=x y\"   /C "))
         assertEquals(emptyList<String>(), IncrediBuildCommandLine.splitExtraArgs("   "))

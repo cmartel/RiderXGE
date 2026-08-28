@@ -107,6 +107,24 @@ BuildConsole.exe InteropDemo.sln /CFG="Debug|x64" /USEMSBUILD=64 /MSBUILDARGS=/r
 2. Under *Before launch* remove Rider's default *Build Solution* / *Build Project* step and add **Build with IncrediBuild**.
 3. Run/Debug as usual – the project's C++ dependencies are distributed, then the managed project is built, then the app starts.
 
+## Troubleshooting
+
+*Settings ▸ IncrediBuild ▸ Troubleshooting* offers:
+
+* **Timestamp every output line** – wall-clock prefix on each line of the IncrediBuild tool window. Phase start/end
+  times and durations (IncrediBuild phase, Rider phase, total) are always printed.
+* **Detailed MSBuild log for the IncrediBuild phase** – `/flp:LogFile=<solution dir>\incredibuild-msbuild.log;Verbosity=detailed`;
+  the log records, per target and file, *why* MSBuild considered it out of date ("Input file … is newer than output file …").
+* **Rider phase in diagnostics mode** – the managed projects are built with Rider's *Build with diagnostics* flag, giving
+  the same level of detail in Rider's Build window for the second phase of a hybrid build.
+* **Explain dependency resolution** – prints the root projects, their resolved / unresolved `ProjectReference`s, the
+  resulting C++ closure and any projects excluded because they are not built under the active configuration.
+
+Typical use: if C++ projects that IncrediBuild just built get recompiled again by the Rider phase, enable the detailed
+MSBuild log and diagnostics mode, run once more, and look for the first "newer than" / "not up to date" line for the
+affected project – it names the input (often a generated file or a referenced managed assembly) that changed between
+the two phases.
+
 ## Notes and limitations
 
 * `.slnx` solutions are supported through `BuildConsole /COMMAND="msbuild ..."` (IncrediBuild's automatic interception)
