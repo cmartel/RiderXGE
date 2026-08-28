@@ -3,7 +3,7 @@ package org.riderxge.incredibuild.settings
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.ui.DialogPanel
-import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.bindIntText
 import com.intellij.ui.dsl.builder.bindItem
@@ -34,15 +34,17 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
             }
             group("Dispatch") {
                 row("Mode:") {
-                    comboBox(DispatchMode.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(DispatchMode.entries, textListCellRenderer<DispatchMode?> { it?.label ?: "" })
                         .bindItem(state::dispatchMode.toNullableProperty())
                         .comment(
-                            "Hybrid: the C++ dependency projects of the selected target are dispatched to IncrediBuild, " +
-                                "then Rider builds the managed projects. Full: the whole solution is built through BuildConsole."
+                            "Hybrid: the C++ dependency projects of the target are dispatched to IncrediBuild, then Rider builds the managed projects. " +
+                                "Dependencies: everything the target depends on (native, C++/CLI and managed) is built through BuildConsole, " +
+                                "then Rider builds only the target - use this when C++/CLI projects sit on top of C# projects. " +
+                                "Full: the whole solution is built through BuildConsole."
                         )
                 }
                 row("Build engine:") {
-                    comboBox(BuildEngine.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(BuildEngine.entries, textListCellRenderer<BuildEngine?> { it?.label ?: "" })
                         .bindItem(state::buildEngine.toNullableProperty())
                         .comment("Engine BuildConsole uses for Visual Studio solutions. MSBuild is recommended for SDK-style C# projects.")
                 }
@@ -50,10 +52,17 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                     checkBox("Use IncrediBuild for Rider's standard build actions")
                         .bindSelected(state::overrideStandardBuildActions)
                         .comment(
-                            "Reroutes Build/Rebuild/Clean Solution and Build Selection (menus, the toolbar build button, " +
-                                "Ctrl+F9 / Ctrl+Shift+B) through IncrediBuild using the mode above. Rider's own build is used as a " +
+                            "Reroutes Build/Rebuild/Clean for the solution, the selection, the startup project and the current project " +
+                                "(menus, the toolbar build button, Ctrl+F9 / Ctrl+Shift+B) through IncrediBuild using the mode above. Rider's own build is used as a " +
                                 "fallback when nothing can be dispatched. Builds started internally by Rider (e.g. the default " +
                                 "before-launch step) are not affected – use the \"Build with IncrediBuild\" before-launch task there."
+                        )
+                }
+                row {
+                    checkBox("Dispatch C++/CLI (/clr) projects to IncrediBuild in hybrid mode").bindSelected(state::dispatchClrProjects)
+                        .comment(
+                            "On (default): the native translation units of C++/CLI projects are distributed; the /clr ones run locally. " +
+                                "Off leaves such projects to the Rider phase entirely."
                         )
                 }
                 row {
@@ -74,11 +83,11 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                     intTextField(0..1024).bindIntText(state::maxCpus).comment("0 = use the agent's global setting")
                 }
                 row("Avoid local execution:") {
-                    comboBox(TriState.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(TriState.entries, textListCellRenderer<TriState?> { it?.label ?: "" })
                         .bindItem(state::avoidLocal.toNullableProperty())
                 }
                 row("Standalone mode:") {
-                    comboBox(TriState.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(TriState.entries, textListCellRenderer<TriState?> { it?.label ?: "" })
                         .bindItem(state::standalone.toNullableProperty())
                         .comment("Standalone builds run on the local machine only (useful when no helpers are reachable).")
                 }
@@ -90,6 +99,21 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                 row { checkBox("Open the IncrediBuild Build Monitor when a build starts (/OPENMONITOR)").bindSelected(state::openMonitor) }
                 row { checkBox("Activate the IncrediBuild tool window when a build starts").bindSelected(state::activateToolWindow) }
                 row { checkBox("Beep when the build completes (/BEEP)").bindSelected(state::beepOnFinish) }
+            }
+            group("Troubleshooting") {
+                row { checkBox("Timestamp every output line").bindSelected(state::timestampOutput) }
+                row {
+                    checkBox("Write a detailed MSBuild log for the IncrediBuild phase").bindSelected(state::detailedMsBuildLog)
+                        .comment("Adds /flp:LogFile=<solution dir>/incredibuild-msbuild.log;Verbosity=detailed, which records why each target/file was (re)built.")
+                }
+                row {
+                    checkBox("Run the Rider phase in diagnostics mode").bindSelected(state::riderDiagnosticsBuild)
+                        .comment("Hybrid mode only: Rider builds the managed projects with detailed MSBuild output in its Build window.")
+                }
+                row {
+                    checkBox("Explain dependency resolution").bindSelected(state::explainDependencies)
+                        .comment("Prints how the C++ dispatch list was derived: roots, resolved/unresolved references and configuration exclusions.")
+                }
             }
         }
     }

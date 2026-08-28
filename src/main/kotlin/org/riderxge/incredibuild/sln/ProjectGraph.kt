@@ -15,7 +15,11 @@ class ProjectGraph private constructor(
     private val edges: Map<Path, List<Path>>,
     /** project path → referenced project files that are *not* part of the solution (informational). */
     val danglingReferences: Map<Path, List<Path>>,
+    /** C++ projects compiled with `/clr` (`<CLRSupport>` other than false): C++/CLI assemblies that depend on managed inputs. */
+    val clrProjects: Set<Path>,
 ) {
+    fun isClr(project: SolutionProject): Boolean = project.path in clrProjects
+
     fun directDependencies(project: SolutionProject): List<SolutionProject> =
         edges[project.path].orEmpty().mapNotNull { solution.findByPath(it) }
 
@@ -56,21 +60,29 @@ class ProjectGraph private constructor(
         fun build(solution: SolutionModel): ProjectGraph {
             val edges = HashMap<Path, List<Path>>()
             val dangling = HashMap<Path, List<Path>>()
+            val clr = HashSet<Path>()
             for (p in solution.projects) {
                 val refs = LinkedHashSet<Path>()
                 if (Files.isRegularFile(p.path)) {
-                    refs.addAll(readProjectReferences(p.path))
+                    val info = readProject(p.path)
+                    refs.addAll(info.references)
+                    if (info.clr) clr.add(p.path)
                 }
                 for (guid in p.explicitDependencyGuids) solution.findByGuid(guid)?.let { refs.add(it.path) }
                 val (inSolution, missing) = refs.partition { solution.findByPath(it) != null }
                 edges[p.path] = inSolution.mapNotNull { solution.findByPath(it)?.path }
                 if (missing.isNotEmpty()) dangling[p.path] = missing
             }
-            return ProjectGraph(solution, edges, dangling)
+            return ProjectGraph(solution, edges, dangling, clr)
         }
 
+        class ProjectInfo(val references: List<Path>, val clr: Boolean)
+
         /** Reads `ProjectReference` items of an MSBuild project file. Unresolvable `$(...)` includes are skipped. */
-        fun readProjectReferences(projectFile: Path): List<Path> {
+        fun readProjectReferences(projectFile: Path): List<Path> = readProject(projectFile).references
+
+        /** Reads project references and whether the project is compiled with `/clr` (`<CLRSupport>`). */
+        fun readProject(projectFile: Path): ProjectInfo {
             val dir = projectFile.toAbsolutePath().parent
             val factory = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = false
@@ -80,7 +92,13 @@ class ProjectGraph private constructor(
             val doc = try {
                 Files.newInputStream(projectFile).use { factory.newDocumentBuilder().parse(it) }
             } catch (e: Exception) {
-                return emptyList()
+                return ProjectInfo(emptyList(), false)
+            }
+            var clr = false
+            val clrNodes = doc.getElementsByTagName("CLRSupport")
+            for (i in 0 until clrNodes.length) {
+                val v = clrNodes.item(i).textContent.trim()
+                if (v.isNotEmpty() && !v.equals("false", ignoreCase = true)) clr = true
             }
             val result = ArrayList<Path>()
             val items = doc.getElementsByTagName("ProjectReference")
@@ -94,7 +112,7 @@ class ProjectGraph private constructor(
                     result.add(dir.resolve(rel).toAbsolutePath().normalize())
                 }
             }
-            return result
+            return ProjectInfo(result, clr)
         }
     }
 }

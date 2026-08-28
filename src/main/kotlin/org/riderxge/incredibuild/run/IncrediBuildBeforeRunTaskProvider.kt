@@ -7,7 +7,7 @@ import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.util.Key
-import com.jetbrains.rider.run.configurations.project.DotNetProjectConfiguration
+import com.jetbrains.rider.run.configurations.IProjectBasedRunConfiguration
 import org.riderxge.incredibuild.build.BuildOutcome
 import org.riderxge.incredibuild.build.IncrediBuildRequest
 import org.riderxge.incredibuild.build.IncrediBuildRunner
@@ -49,7 +49,7 @@ class IncrediBuildBeforeRunTaskProvider : BeforeRunTaskProvider<IncrediBuildBefo
         task: IncrediBuildBeforeRunTask,
     ): Boolean {
         val project = configuration.project
-        val projectFile: String? = (configuration as? DotNetProjectConfiguration)?.getProjectFilePath()
+        val projectFile: String? = (configuration as? IProjectBasedRunConfiguration)?.getProjectFilePath()
         val projectPath: Path? = projectFile
             ?.takeIf { it.isNotBlank() }
             ?.let { runCatching { Paths.get(it).toAbsolutePath().normalize() }.getOrNull() }

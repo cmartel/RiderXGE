@@ -1,9 +1,10 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.0.21"
-    id("org.jetbrains.intellij.platform") version "2.2.1"
+    id("org.jetbrains.kotlin.jvm") version "2.4.10"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
 val pluginGroup: String by project
@@ -12,6 +13,7 @@ val platformVersion: String by project
 val pluginSinceBuild: String by project
 val pluginUntilBuild: String by project
 val riderLocalPath: String by project
+val riderBundledModules: String by project
 
 group = pluginGroup
 version = pluginVersion
@@ -31,7 +33,9 @@ dependencies {
         } else {
             rider(platformVersion)
         }
-        instrumentationTools()
+        // Rider 2025.3+ exposes the project-model/solution APIs as a separate content module; on 2024.3 they are
+        // part of the main jars and the module must not be requested (see riderBundledModules in gradle.properties).
+        riderBundledModules.split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { bundledModule(it) }
         pluginVerifier()
         testFramework(TestFrameworkType.Platform)
     }
@@ -39,7 +43,12 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
+    compilerOptions {
+        // Stay loadable with the Kotlin stdlib bundled in the oldest supported Rider.
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
+    }
 }
 
 intellijPlatform {
@@ -51,20 +60,34 @@ intellijPlatform {
         version = pluginVersion
         ideaVersion {
             sinceBuild = pluginSinceBuild
-            untilBuild = pluginUntilBuild
+            untilBuild = provider { pluginUntilBuild.trim().ifEmpty { null } }
         }
     }
     pluginVerification {
         ides {
-            recommended()
+            // The single binary is compiled against the oldest supported Rider (Java 21 bytecode) and verified
+            // against the newer lines it must keep running on (Rider 2026.x runs on Java 25 and can load it).
+            create(IntelliJPlatformType.Rider, platformVersion)
+            create(IntelliJPlatformType.Rider, "2026.1.5")
+            create(IntelliJPlatformType.Rider, "2026.2.1")
         }
     }
 }
 
 tasks {
+    patchPluginXml {
+        // Rider 2024.3 has no separately declarable content modules: drop the <dependencies> block from plugin.xml
+        // when riderBundledModules is empty (the classes are part of the main jars there).
+        if (riderBundledModules.isBlank()) {
+            doLast {
+                val f = outputFile.get().asFile
+                f.writeText(f.readLines().filterNot { it.contains("<dependencies>") || it.contains("</dependencies>") || it.contains("<module name=") }.joinToString(System.lineSeparator()))
+            }
+        }
+    }
     withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+        sourceCompatibility = "21"
+        targetCompatibility = "21"
     }
     test {
         useJUnit()

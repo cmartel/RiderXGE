@@ -31,9 +31,24 @@ class IncrediBuildConsoleTab(val console: ConsoleView, val content: Content) : D
         console.attachToProcess(handler)
     }
 
+    /** When true every printed line is prefixed with a wall-clock timestamp. */
+    @Volatile
+    var timestamps: Boolean = false
+
     fun println(text: String, type: ConsoleViewContentType) {
-        console.print(text + "\n", type)
+        if (!timestamps) {
+            console.print(text + "\n", type)
+            return
+        }
+        for (line in text.split('\n')) console.print("${stamp()} $line\n", type)
     }
+
+    /** Prints one line of BuildConsole output (already split into complete lines by the runner). */
+    fun printOutput(line: String, stderr: Boolean) {
+        println(line, if (stderr) ConsoleViewContentType.ERROR_OUTPUT else ConsoleViewContentType.NORMAL_OUTPUT)
+    }
+
+    private fun stamp(): String = "[" + java.time.LocalTime.now().format(TIME_FORMAT) + "]"
 
     /** Called for every complete output line (already printed by the attached process handler). */
     fun onLine(line: String) {
@@ -58,4 +73,8 @@ class IncrediBuildConsoleTab(val console: ConsoleView, val content: Content) : D
     }
 
     override fun dispose() {}
+
+    companion object {
+        private val TIME_FORMAT: java.time.format.DateTimeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+    }
 }

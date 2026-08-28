@@ -18,7 +18,7 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
 | Feature | Where |
 |---|---|
 | Build / Rebuild / Clean **solution** with IncrediBuild | *Build ▸ IncrediBuild* menu (`Ctrl+Alt+Shift+B` for Build) |
-| **Take over Rider's standard build commands** (Build/Rebuild/Clean Solution, Build Selection, toolbar build button, `Ctrl+F9` / `Ctrl+Shift+B`) | Settings ▸ IncrediBuild ▸ *Use IncrediBuild for Rider's standard build actions* |
+| **Take over Rider's standard build commands** (Build/Rebuild/Clean Solution, Selection, Startup Project and Current Project incl. the *Only…* variants, toolbar build button, `Ctrl+F9` / `Ctrl+Shift+B`) | Settings ▸ IncrediBuild ▸ *Use IncrediBuild for Rider's standard build actions* |
 | Build / Rebuild / Clean **selected projects** with IncrediBuild | Solution Explorer context menu ▸ *IncrediBuild* |
 | Build selection *without* dependencies (`/NORECURSE`) | Solution Explorer context menu ▸ *IncrediBuild* |
 | **Dispatch C++ dependencies only** (no Rider build afterwards) | Solution Explorer context menu ▸ *IncrediBuild* |
@@ -34,6 +34,15 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
   to `BuildConsole.exe <sln> /PRJ=<cpp projects> /CFG=<active configuration>`. When that succeeds, the managed
   project(s) are built through Rider's regular build pipeline (`BuildHost`), which finds the C++ outputs up to date.
   If there is nothing native to dispatch, the build goes straight to Rider.
+  C++/CLI projects (`<CLRSupport>` set) are dispatched too: IncrediBuild runs their `/clr` translation units locally but
+  distributes the native ones, which for large bridge projects is most of the work. *Settings > Dispatch C++/CLI projects
+  to IncrediBuild* can leave them to the Rider phase instead.
+* **Dependencies** – *all* dependencies of the requested project(s) – native, C++/CLI and managed – are built through
+  `BuildConsole.exe` (`/PRJ=<every transitive dependency>`), then Rider builds only the requested project(s) themselves
+  *without dependencies*. One engine owns everything below the target, so nothing is compiled twice across the
+  C++/CLI ↔ C# boundary. Use this when C++/CLI projects sit on top of C# projects (the second phase of *Hybrid* would
+  otherwise rebuild the managed assemblies they reference and invalidate them). For a whole-solution request this is
+  identical to *Full*.
 * **Full** – the whole request runs through `BuildConsole.exe` with IncrediBuild's MSBuild integration
   (`/USEMSBUILD`). C++ tasks are distributed; C# projects are built by MSBuild locally.
 
@@ -43,8 +52,9 @@ not built under that solution configuration (no `Build.0` entry) are skipped.
 ### Taking over Rider's own build commands
 
 With **Use IncrediBuild for Rider's standard build actions** enabled (off by default), the plugin wraps Rider's stock
-build actions (`BuildWholeSolutionAction`, the toolbar build button, `RebuildSolutionAction`, `CleanSolutionAction` and
-the *Build/Rebuild/Clean Selection* context actions) so that the familiar commands and shortcuts dispatch through
+build actions (`BuildWholeSolutionAction`, the toolbar build button, `RebuildSolutionAction`, `CleanSolutionAction`,
+the *Build/Rebuild/Clean Selection* context actions and the *Startup Project* / *Current Project* actions including their
+*Only …* (no dependencies) variants) so that the familiar commands and shortcuts dispatch through
 IncrediBuild using the configured mode; menu entries show an *(IncrediBuild)* suffix while active. The original action
 is used as a fallback whenever the plugin cannot resolve a target (e.g. *Build Selection* invoked from a context without
 a Solution Explorer selection). Builds Rider starts internally – the default *Build Solution* before-launch step,
@@ -53,7 +63,8 @@ before-launch task for run configurations instead.
 
 ## Requirements
 
-* JetBrains Rider 2024.3.x (build 243) on Windows.
+* JetBrains Rider 2025.3 or newer (builds 253+, verified on 2025.3, 2026.1 and 2026.2) on Windows. Rider 2024.3 (build 243) is
+  served by the separate `rider2024.3` branch/release line.
 * [IncrediBuild for Windows](https://www.incredibuild.com/) Agent installed locally (`BuildConsole.exe` is auto-detected via the
   registry / `%ProgramFiles(x86)%\IncrediBuild`, or set the path in settings).
 * Visual Studio Build Tools / MSVC for the C++ projects (as for any IncrediBuild VS build).
@@ -68,8 +79,22 @@ before-launch task for run configurations instead.
 .\gradlew.bat runIde   # launches a sandboxed Rider with the plugin
 ```
 
-A JDK 17 is required (`JAVA_HOME`). The `riderLocalPath` property can be overridden with `-PriderLocalPath=...` or
-cleared to force the download of the version in `platformVersion`.
+A JDK 21 is required (`JAVA_HOME`). The plugin is compiled against the oldest supported Rider (`platformVersion`, Java 21
+bytecode) so the same binary loads on the Java 25 based Rider 2026.x; `verifyPlugin` checks it against 2025.3, 2026.1 and
+2026.2. `riderLocalPath` can point at a local install instead of downloading.
+
+### Supporting older Rider versions
+
+| Rider | Java | `BuildParameters` ctor | project-model module split | Served by |
+|---|---|---|---|---|
+| 2024.3 (243) | 21 | old | no | `rider2024.3` branch |
+| 2025.3 (253) | 21 | `Boolean` silent mode | yes | `main` |
+| 2026.1 (261) | 25 | `Boolean` silent mode | yes | `main` |
+| 2026.2 (262) | 25 | `SilentMode` enum | yes | `main` |
+
+`main` handles the 2026.2 constructor change reflectively (`RiderBuildParameters`), so one zip covers 2025.3 → 2026.2+.
+Only Rider 2024.3 needs the separate `rider2024.3` branch (older `BuildParameters`, no module split); its diffs are small
+and can be cherry-picked in either direction. 2025.1/2025.2 have not been verified.
 
 ## Sample solution
 
@@ -90,6 +115,24 @@ BuildConsole.exe InteropDemo.sln /CFG="Debug|x64" /USEMSBUILD=64 /MSBUILDARGS=/r
 1. *Run ▸ Edit Configurations…*, pick the configuration.
 2. Under *Before launch* remove Rider's default *Build Solution* / *Build Project* step and add **Build with IncrediBuild**.
 3. Run/Debug as usual – the project's C++ dependencies are distributed, then the managed project is built, then the app starts.
+
+## Troubleshooting
+
+*Settings ▸ IncrediBuild ▸ Troubleshooting* offers:
+
+* **Timestamp every output line** – wall-clock prefix on each line of the IncrediBuild tool window. Phase start/end
+  times and durations (IncrediBuild phase, Rider phase, total) are always printed.
+* **Detailed MSBuild log for the IncrediBuild phase** – `/flp:LogFile=<solution dir>\incredibuild-msbuild.log;Verbosity=detailed`;
+  the log records, per target and file, *why* MSBuild considered it out of date ("Input file … is newer than output file …").
+* **Rider phase in diagnostics mode** – the managed projects are built with Rider's *Build with diagnostics* flag, giving
+  the same level of detail in Rider's Build window for the second phase of a hybrid build.
+* **Explain dependency resolution** – prints the root projects, their resolved / unresolved `ProjectReference`s, the
+  resulting C++ closure and any projects excluded because they are not built under the active configuration.
+
+Typical use: if C++ projects that IncrediBuild just built get recompiled again by the Rider phase, enable the detailed
+MSBuild log and diagnostics mode, run once more, and look for the first "newer than" / "not up to date" line for the
+affected project – it names the input (often a generated file or a referenced managed assembly) that changed between
+the two phases.
 
 ## Notes and limitations
 
