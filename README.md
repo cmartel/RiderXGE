@@ -57,9 +57,13 @@ the *Build/Rebuild/Clean Selection* context actions and the *Startup Project* / 
 *Only …* (no dependencies) variants) so that the familiar commands and shortcuts dispatch through
 IncrediBuild using the configured mode; menu entries show an *(IncrediBuild)* suffix while active. The original action
 is used as a fallback whenever the plugin cannot resolve a target (e.g. *Build Selection* invoked from a context without
-a Solution Explorer selection). Builds Rider starts internally – the default *Build Solution* before-launch step,
-build-before-unit-tests – do not go through these actions and are **not** intercepted; use the *Build with IncrediBuild*
-before-launch task for run configurations instead.
+a Solution Explorer selection).
+
+Run/Debug (F5, Shift+F10) does not go through these actions: it executes the run configuration's *Before launch* steps,
+and Rider puts a *Build Project* (or *Build Solution*) step there that calls its build host directly. With the override
+enabled, the plugin therefore also swaps that step for its own **Build with IncrediBuild** step in every run
+configuration (existing ones on startup, new ones as they are created) and swaps it back when the option is turned off
+(*Also use IncrediBuild for the build step before Run/Debug*, on by default). Build-before-unit-tests is still Rider's own.
 
 ## Requirements
 
@@ -112,9 +116,12 @@ BuildConsole.exe InteropDemo.sln /CFG="Debug|x64" /USEMSBUILD=64 /MSBUILDARGS=/r
 
 ## Using it as the build step for Run/Debug
 
+With *Use IncrediBuild for Rider's standard build actions* enabled this happens automatically (see above). To do it by
+hand for a single configuration:
+
 1. *Run ▸ Edit Configurations…*, pick the configuration.
 2. Under *Before launch* remove Rider's default *Build Solution* / *Build Project* step and add **Build with IncrediBuild**.
-3. Run/Debug as usual – the project's C++ dependencies are distributed, then the managed project is built, then the app starts.
+3. Run/Debug as usual – the project is built through the configured dispatch mode, then the app starts.
 
 ## Troubleshooting
 

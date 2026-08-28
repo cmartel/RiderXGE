@@ -5,10 +5,11 @@ import com.intellij.execution.BeforeRunTaskProvider
 import com.intellij.execution.configurations.RunConfiguration
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.components.BaseState
+import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.util.Key
 import com.jetbrains.rider.run.configurations.IProjectBasedRunConfiguration
-import org.riderxge.incredibuild.build.BuildOutcome
 import org.riderxge.incredibuild.build.IncrediBuildRequest
 import org.riderxge.incredibuild.build.IncrediBuildRunner
 import org.riderxge.incredibuild.ib.BuildOperation
@@ -17,12 +18,52 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import javax.swing.Icon
 
-class IncrediBuildBeforeRunTask : BeforeRunTask<IncrediBuildBeforeRunTask>(IncrediBuildBeforeRunTaskProvider.ID)
+class IncrediBuildBeforeRunTaskState : BaseState() {
+    /** Explicit project to build; empty means "the run configuration's project" (or the whole solution). */
+    var projectPath by string("")
+    /** Build the whole solution rather than a single project (replacement for Rider's "Build Solution" step). */
+    var wholeSolution by property(false)
+    /** Installed automatically by [BeforeRunTaskSwapper] in place of Rider's build step; restored when the option is turned off. */
+    var autoInstalled by property(false)
+}
+
+class IncrediBuildBeforeRunTask :
+    BeforeRunTask<IncrediBuildBeforeRunTask>(IncrediBuildBeforeRunTaskProvider.ID),
+    PersistentStateComponent<IncrediBuildBeforeRunTaskState> {
+
+    private var state = IncrediBuildBeforeRunTaskState()
+
+    override fun getState(): IncrediBuildBeforeRunTaskState = state
+
+    override fun loadState(state: IncrediBuildBeforeRunTaskState) {
+        this.state = state
+    }
+
+    override fun clone(): BeforeRunTask<IncrediBuildBeforeRunTask> {
+        val copy = super.clone() as IncrediBuildBeforeRunTask
+        copy.state = IncrediBuildBeforeRunTaskState().also {
+            it.projectPath = state.projectPath
+            it.wholeSolution = state.wholeSolution
+            it.autoInstalled = state.autoInstalled
+        }
+        return copy
+    }
+
+    /** The project this step builds for [configuration], or null for the whole solution. */
+    fun projectPathFor(configuration: RunConfiguration): Path? {
+        if (state.wholeSolution) return null
+        val explicit = state.projectPath?.takeIf { it.isNotBlank() }
+        val fromConfiguration = (configuration as? IProjectBasedRunConfiguration)?.getProjectFilePath()?.takeIf { it.isNotBlank() }
+        return (explicit ?: fromConfiguration)?.let { runCatching { Paths.get(it).toAbsolutePath().normalize() }.getOrNull() }
+    }
+}
 
 /**
  * "Build with IncrediBuild" before-launch step. For a .NET project run configuration it builds that project
- * (dispatching its C++ dependencies to IncrediBuild per the configured mode); for any other configuration it
- * builds the whole solution. Intended as a replacement for Rider's default "Build Solution"/"Build Project" step.
+ * (through the configured dispatch mode); for any other configuration it builds the whole solution.
+ * Replaces Rider's default "Build Project"/"Build Solution" step – automatically when
+ * "Use IncrediBuild for Rider's standard build actions" is on (see [BeforeRunTaskSwapper]), or by hand from
+ * Run > Edit Configurations > Before launch.
  */
 class IncrediBuildBeforeRunTaskProvider : BeforeRunTaskProvider<IncrediBuildBeforeRunTask>() {
 
@@ -32,11 +73,18 @@ class IncrediBuildBeforeRunTaskProvider : BeforeRunTaskProvider<IncrediBuildBefo
 
     override fun getIcon(): Icon = IncrediBuildIcons.Logo
 
-    override fun getDescription(task: IncrediBuildBeforeRunTask): String = "Build with IncrediBuild"
+    override fun getDescription(task: IncrediBuildBeforeRunTask): String {
+        val s = task.state
+        return when {
+            s.wholeSolution -> "Build solution with IncrediBuild"
+            !s.projectPath.isNullOrBlank() -> "Build ${Paths.get(s.projectPath!!).fileName} with IncrediBuild"
+            else -> "Build with IncrediBuild"
+        }
+    }
 
     override fun isConfigurable(): Boolean = false
 
-    /** Never added automatically – the user opts in per run configuration. */
+    /** Never added automatically by the platform – the user opts in per run configuration (or via the settings option). */
     override fun createTask(runConfiguration: RunConfiguration): IncrediBuildBeforeRunTask =
         IncrediBuildBeforeRunTask().apply { isEnabled = false }
 
@@ -49,13 +97,9 @@ class IncrediBuildBeforeRunTaskProvider : BeforeRunTaskProvider<IncrediBuildBefo
         task: IncrediBuildBeforeRunTask,
     ): Boolean {
         val project = configuration.project
-        val projectFile: String? = (configuration as? IProjectBasedRunConfiguration)?.getProjectFilePath()
-        val projectPath: Path? = projectFile
-            ?.takeIf { it.isNotBlank() }
-            ?.let { runCatching { Paths.get(it).toAbsolutePath().normalize() }.getOrNull() }
         val request = IncrediBuildRequest(
             operation = BuildOperation.BUILD,
-            projectPaths = listOfNotNull(projectPath),
+            projectPaths = listOfNotNull(task.projectPathFor(configuration)),
         )
         return try {
             val outcome = IncrediBuildRunner.getInstance(project).build(request).get()
