@@ -57,6 +57,13 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                         )
                 }
                 row {
+                    checkBox("Dispatch C++/CLI (/clr) projects to IncrediBuild in hybrid mode").bindSelected(state::dispatchClrProjects)
+                        .comment(
+                            "Off (recommended): C++/CLI projects are left to the Rider phase, after the managed assemblies they reference are " +
+                                "built, so they compile once. Their native dependencies are still dispatched. IncrediBuild cannot distribute /clr compiles anyway."
+                        )
+                }
+                row {
                     checkBox("Restore NuGet packages before building (/restore)").bindSelected(state::restorePackages)
                         .comment("Required for SDK-style C# projects when the whole solution is built through BuildConsole.")
                 }

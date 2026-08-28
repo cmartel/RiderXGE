@@ -34,6 +34,11 @@ class IncrediBuildSettingsState : BaseState() {
     var dispatchMode by enum(DispatchMode.HYBRID)
     /** Reroute Rider's stock Build/Rebuild/Clean commands (menu, build button, Ctrl+F9) through IncrediBuild. */
     var overrideStandardBuildActions by property(false)
+    /**
+     * Hybrid mode: also dispatch C++/CLI (`/clr`) projects to IncrediBuild. Off by default: such projects reference managed
+     * assemblies that Rider rebuilds in the second phase, which would invalidate their tracker logs and rebuild them twice.
+     */
+    var dispatchClrProjects by property(false)
     var buildEngine by enum(BuildEngine.MSBUILD_64)
     /** Pass `/restore` to MSBuild so SDK-style projects get their NuGet assets before building (NETSDK1004 otherwise). */
     var restorePackages by property(true)
