@@ -81,8 +81,7 @@ tasks {
         if (riderBundledModules.isBlank()) {
             doLast {
                 val f = outputFile.get().asFile
-                f.writeText(f.readLines().filterNot { it.contains("<dependencies>") || it.contains("</dependencies>") || it.contains("<module name=") }.joinToString("
-"))
+                f.writeText(f.readLines().filterNot { it.contains("<dependencies>") || it.contains("</dependencies>") || it.contains("<module name=") }.joinToString(System.lineSeparator()))
             }
         }
     }
