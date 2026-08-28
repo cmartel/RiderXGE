@@ -47,6 +47,16 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                         .comment("Engine BuildConsole uses for Visual Studio solutions. MSBuild is recommended for SDK-style C# projects.")
                 }
                 row {
+                    checkBox("Use IncrediBuild for Rider's standard build actions")
+                        .bindSelected(state::overrideStandardBuildActions)
+                        .comment(
+                            "Reroutes Build/Rebuild/Clean Solution and Build Selection (menus, the toolbar build button, " +
+                                "Ctrl+F9 / Ctrl+Shift+B) through IncrediBuild using the mode above. Rider's own build is used as a " +
+                                "fallback when nothing can be dispatched. Builds started internally by Rider (e.g. the default " +
+                                "before-launch step) are not affected – use the \"Build with IncrediBuild\" before-launch task there."
+                        )
+                }
+                row {
                     checkBox("Restore NuGet packages before building (/restore)").bindSelected(state::restorePackages)
                         .comment("Required for SDK-style C# projects when the whole solution is built through BuildConsole.")
                 }

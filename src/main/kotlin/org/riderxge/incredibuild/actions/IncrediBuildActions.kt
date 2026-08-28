@@ -7,7 +7,6 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.options.ShowSettingsUtil
@@ -15,10 +14,6 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.jetbrains.rider.build.BuildHost
 import com.jetbrains.rider.projectView.hasSolution
-import com.jetbrains.rider.projectView.workspace.getFile
-import com.jetbrains.rider.projectView.workspace.getProjectModelEntities
-import com.jetbrains.rider.projectView.workspace.isProject
-import com.jetbrains.rider.projectView.workspace.isSolution
 import org.riderxge.incredibuild.build.IncrediBuildRequest
 import org.riderxge.incredibuild.build.IncrediBuildRunner
 import org.riderxge.incredibuild.ib.BuildOperation
@@ -49,7 +44,7 @@ abstract class IncrediBuildActionBase(
             e.presentation.isEnabledAndVisible = false
             return
         }
-        val selection = if (scope == Scope.SELECTION) selectedProjects(e.dataContext) else null
+        val selection = if (scope == Scope.SELECTION) BuildTargetResolver.selectedProjects(e.dataContext) else null
         if (scope == Scope.SELECTION && selection == null) {
             e.presentation.isEnabledAndVisible = false
             return
@@ -64,7 +59,7 @@ abstract class IncrediBuildActionBase(
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val paths = if (scope == Scope.SELECTION) selectedProjects(e.dataContext) ?: return else emptyList()
+        val paths = if (scope == Scope.SELECTION) BuildTargetResolver.selectedProjects(e.dataContext) ?: return else emptyList()
         val request = IncrediBuildRequest(
             operation = operation,
             projectPaths = paths,
@@ -75,19 +70,6 @@ abstract class IncrediBuildActionBase(
         IncrediBuildRunner.getInstance(project).build(request)
     }
 
-    /**
-     * Project files selected in the Solution Explorer; an empty list means the solution node is selected;
-     * null when the selection contains nothing buildable.
-     */
-    private fun selectedProjects(context: DataContext): List<Path>? {
-        val entities = runCatching { context.getProjectModelEntities(false) }.getOrElse {
-            LOG.debug("Cannot read project model selection", it); emptyList()
-        }
-        if (entities.isEmpty()) return null
-        if (entities.any { it.isSolution() }) return emptyList()
-        val projects = entities.filter { it.isProject() }.mapNotNull { runCatching { it.getFile()?.toPath() }.getOrNull() }
-        return projects.takeIf { it.isNotEmpty() }
-    }
 }
 
 class BuildSolutionWithIncrediBuildAction : IncrediBuildActionBase(BuildOperation.BUILD, Scope.SOLUTION)

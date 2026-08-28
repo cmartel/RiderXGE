@@ -32,6 +32,8 @@ class IncrediBuildSettingsState : BaseState() {
     /** Explicit path to BuildConsole.exe; empty means auto-detect. */
     var buildConsolePath by string("")
     var dispatchMode by enum(DispatchMode.HYBRID)
+    /** Reroute Rider's stock Build/Rebuild/Clean commands (menu, build button, Ctrl+F9) through IncrediBuild. */
+    var overrideStandardBuildActions by property(false)
     var buildEngine by enum(BuildEngine.MSBUILD_64)
     /** Pass `/restore` to MSBuild so SDK-style projects get their NuGet assets before building (NETSDK1004 otherwise). */
     var restorePackages by property(true)

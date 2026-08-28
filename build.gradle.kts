@@ -43,6 +43,10 @@ kotlin {
 }
 
 intellijPlatform {
+    // buildSearchableOptions boots a headless IDE to index the settings page; with Rider that starts the whole
+    // IDE + .NET backend and hangs. Not needed for a plugin with one settings page.
+    buildSearchableOptions = false
+
     pluginConfiguration {
         version = pluginVersion
         ideaVersion {

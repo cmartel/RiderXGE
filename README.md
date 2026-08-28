@@ -18,6 +18,7 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
 | Feature | Where |
 |---|---|
 | Build / Rebuild / Clean **solution** with IncrediBuild | *Build ▸ IncrediBuild* menu (`Ctrl+Alt+Shift+B` for Build) |
+| **Take over Rider's standard build commands** (Build/Rebuild/Clean Solution, Build Selection, toolbar build button, `Ctrl+F9` / `Ctrl+Shift+B`) | Settings ▸ IncrediBuild ▸ *Use IncrediBuild for Rider's standard build actions* |
 | Build / Rebuild / Clean **selected projects** with IncrediBuild | Solution Explorer context menu ▸ *IncrediBuild* |
 | Build selection *without* dependencies (`/NORECURSE`) | Solution Explorer context menu ▸ *IncrediBuild* |
 | **Dispatch C++ dependencies only** (no Rider build afterwards) | Solution Explorer context menu ▸ *IncrediBuild* |
@@ -38,6 +39,17 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
 
 The active *solution configuration and platform* selected in Rider's toolbar is used for both modes. Projects that are
 not built under that solution configuration (no `Build.0` entry) are skipped.
+
+### Taking over Rider's own build commands
+
+With **Use IncrediBuild for Rider's standard build actions** enabled (off by default), the plugin wraps Rider's stock
+build actions (`BuildWholeSolutionAction`, the toolbar build button, `RebuildSolutionAction`, `CleanSolutionAction` and
+the *Build/Rebuild/Clean Selection* context actions) so that the familiar commands and shortcuts dispatch through
+IncrediBuild using the configured mode; menu entries show an *(IncrediBuild)* suffix while active. The original action
+is used as a fallback whenever the plugin cannot resolve a target (e.g. *Build Selection* invoked from a context without
+a Solution Explorer selection). Builds Rider starts internally – the default *Build Solution* before-launch step,
+build-before-unit-tests – do not go through these actions and are **not** intercepted; use the *Build with IncrediBuild*
+before-launch task for run configurations instead.
 
 ## Requirements
 
