@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{A1B2C3D4-0002-4000-8000-000000000002}</ProjectGuid>
+    <Keyword>ManagedCProj</Keyword>
+    <RootNamespace>CppCliBridge</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <TargetFramework>net8.0</TargetFramework>
+    <CLRSupport>NetCore</CLRSupport>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <AdditionalIncludeDirectories>$(SolutionDir)NativeCore;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="Bridge.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Bridge.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NativeCore\NativeCore.vcxproj">
+      <Project>{A1B2C3D4-0003-4000-8000-000000000003}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

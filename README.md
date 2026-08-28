@@ -1,0 +1,89 @@
+# IncrediBuild Integration (for JetBrains Rider)
+
+A JetBrains Rider plugin that dispatches builds to a running **IncrediBuild** agent. Rider has no native
+IncrediBuild integration; this plugin adds one, with first-class support for the common
+"C# application that depends on C++ interop projects" layout.
+
+```
+App.csproj  ──►  CppCliBridge.vcxproj (C++/CLI)  ──►  NativeCore.vcxproj (native DLL)
+   │                                                        ▲
+   └───────────── P/Invoke (NativeCore.dll) ────────────────┘
+```
+
+With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to IncrediBuild (distributed
+`cl.exe`/`link.exe`), and Rider's own build engine then finishes the managed project against the fresh outputs.
+
+## Features
+
+| Feature | Where |
+|---|---|
+| Build / Rebuild / Clean **solution** with IncrediBuild | *Build ▸ IncrediBuild* menu (`Ctrl+Alt+Shift+B` for Build) |
+| Build / Rebuild / Clean **selected projects** with IncrediBuild | Solution Explorer context menu ▸ *IncrediBuild* |
+| Build selection *without* dependencies (`/NORECURSE`) | Solution Explorer context menu ▸ *IncrediBuild* |
+| **Dispatch C++ dependencies only** (no Rider build afterwards) | Solution Explorer context menu ▸ *IncrediBuild* |
+| Build entire solution via BuildConsole regardless of mode | *Build ▸ IncrediBuild* |
+| "Build with IncrediBuild" **before-launch task** | Run/Debug configuration ▸ *Before launch* ▸ `+` |
+| IncrediBuild **tool window** with clickable `file(line,col): error CXXXX` diagnostics, cancel, Build Monitor, agent status | *View ▸ Tool Windows ▸ IncrediBuild* |
+| Settings (BuildConsole path, dispatch mode, engine, agent overrides, output options) | *Settings ▸ Build, Execution, Deployment ▸ IncrediBuild* |
+
+### Dispatch modes
+
+* **Hybrid** (default) – the transitive `.vcxproj` dependency closure of the requested project(s) is computed from the
+  solution and the `<ProjectReference>` items of each project file (plus explicit `.sln` project dependencies) and handed
+  to `BuildConsole.exe <sln> /PRJ=<cpp projects> /CFG=<active configuration>`. When that succeeds, the managed
+  project(s) are built through Rider's regular build pipeline (`BuildHost`), which finds the C++ outputs up to date.
+  If there is nothing native to dispatch, the build goes straight to Rider.
+* **Full** – the whole request runs through `BuildConsole.exe` with IncrediBuild's MSBuild integration
+  (`/USEMSBUILD`). C++ tasks are distributed; C# projects are built by MSBuild locally.
+
+The active *solution configuration and platform* selected in Rider's toolbar is used for both modes. Projects that are
+not built under that solution configuration (no `Build.0` entry) are skipped.
+
+## Requirements
+
+* JetBrains Rider 2024.3.x (build 243) on Windows.
+* [IncrediBuild for Windows](https://www.incredibuild.com/) Agent installed locally (`BuildConsole.exe` is auto-detected via the
+  registry / `%ProgramFiles(x86)%\IncrediBuild`, or set the path in settings).
+* Visual Studio Build Tools / MSVC for the C++ projects (as for any IncrediBuild VS build).
+
+## Building the plugin
+
+```powershell
+# Uses the locally installed Rider from gradle.properties (riderLocalPath); falls back to downloading `platformVersion`.
+.\gradlew.bat test buildPlugin
+# → build\distributions\rider-incredibuild-<version>.zip  (install via Settings ▸ Plugins ▸ ⚙ ▸ Install Plugin from Disk)
+
+.\gradlew.bat runIde   # launches a sandboxed Rider with the plugin
+```
+
+A JDK 17 is required (`JAVA_HOME`). The `riderLocalPath` property can be overridden with `-PriderLocalPath=...` or
+cleared to force the download of the version in `platformVersion`.
+
+## Sample solution
+
+`samples/InteropDemo` contains the layout from the diagram above (`App` C# console app, `CppCliBridge` C++/CLI .NET 8
+assembly, `NativeCore` native DLL with several template-heavy translation units). Open `InteropDemo.sln` in Rider,
+select `App` in the Solution Explorer and choose *IncrediBuild ▸ Build 'App' with IncrediBuild*; the tool window shows the
+`BuildConsole` command line, the distributed C++ tasks (agent and timing per task) and then the Rider build of `App`.
+
+Equivalent command lines that the plugin generates for that action:
+
+```
+BuildConsole.exe InteropDemo.sln /CFG="Debug|x64" /PRJ=NativeCore,CppCliBridge /USEMSBUILD=64 /MSBUILDARGS=/restore /NOLOGO /SHOWAGENT /SHOWTIME   # hybrid: C++ part
+BuildConsole.exe InteropDemo.sln /CFG="Debug|x64" /USEMSBUILD=64 /MSBUILDARGS=/restore /NOLOGO /SHOWAGENT /SHOWTIME             # full mode
+```
+
+## Using it as the build step for Run/Debug
+
+1. *Run ▸ Edit Configurations…*, pick the configuration.
+2. Under *Before launch* remove Rider's default *Build Solution* / *Build Project* step and add **Build with IncrediBuild**.
+3. Run/Debug as usual – the project's C++ dependencies are distributed, then the managed project is built, then the app starts.
+
+## Notes and limitations
+
+* `.slnx` solutions are supported through `BuildConsole /COMMAND="msbuild ..."` (IncrediBuild's automatic interception)
+  because BuildConsole's Visual Studio syntax only accepts `.sln`. MSBuild is located with `vswhere`.
+* `ProjectReference` items containing MSBuild properties (`$(...)`) cannot be resolved statically and are skipped for
+  dependency discovery; use *Full* mode or add an explicit project dependency in the `.sln` in that case.
+* Cancelling issues `BuildConsole /STOP` first so the distributed build is torn down cleanly, then kills the process.
+* The plugin is a Rider *frontend* (JVM) plugin; it does not require a ReSharper/backend component.

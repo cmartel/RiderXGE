@@ -1,0 +1,11 @@
+.gradle/
+build/
+.idea/
+.intellijPlatform/
+*.iml
+out/
+samples/**/bin/
+samples/**/obj/
+samples/**/x64/
+samples/**/.vs/
+*.user

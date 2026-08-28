@@ -1,0 +1,94 @@
+<idea-plugin>
+    <id>org.riderxge.incredibuild</id>
+    <name>IncrediBuild Integration</name>
+    <vendor>RiderXGE</vendor>
+    <description><![CDATA[
+        Dispatches builds from JetBrains Rider to an <b>IncrediBuild</b> agent.
+        <ul>
+            <li>Build / Rebuild / Clean the solution or selected projects through <code>BuildConsole.exe</code>.</li>
+            <li><b>Hybrid mode</b>: the C++ (<code>.vcxproj</code>) dependency projects of a C# project are distributed by
+                IncrediBuild, then Rider's own build finishes the managed projects &ndash; ideal for C# applications with
+                C++/CLI or native interop dependencies.</li>
+            <li><b>Full mode</b>: the entire solution is built through IncrediBuild's MSBuild integration.</li>
+            <li>"Build with IncrediBuild" before-launch task for Run/Debug configurations.</li>
+            <li>Build output with clickable compiler diagnostics in a dedicated tool window; Build Monitor and agent status shortcuts.</li>
+        </ul>
+        Requires IncrediBuild for Windows (Agent) installed on the machine running Rider.
+    ]]></description>
+
+    <depends>com.intellij.modules.rider</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable parentId="build" id="org.riderxge.incredibuild.settings"
+                                 displayName="IncrediBuild"
+                                 instance="org.riderxge.incredibuild.settings.IncrediBuildConfigurable"/>
+        <toolWindow id="IncrediBuild" anchor="bottom" secondary="false" canCloseContents="true"
+                    doNotActivateOnStart="true"
+                    icon="/icons/toolWindowIncrediBuild.svg"
+                    factoryClass="org.riderxge.incredibuild.ui.IncrediBuildToolWindowFactory"/>
+        <stepsBeforeRunProvider implementation="org.riderxge.incredibuild.run.IncrediBuildBeforeRunTaskProvider"/>
+        <notificationGroup id="IncrediBuild" displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <action id="IncrediBuild.BuildSolution" class="org.riderxge.incredibuild.actions.BuildSolutionWithIncrediBuildAction"
+                text="Build Solution with IncrediBuild" description="Build the solution, dispatching C++ projects to IncrediBuild"
+                icon="org.riderxge.incredibuild.ui.IncrediBuildIcons.Logo">
+            <keyboard-shortcut first-keystroke="control alt shift B" keymap="$default"/>
+        </action>
+        <action id="IncrediBuild.RebuildSolution" class="org.riderxge.incredibuild.actions.RebuildSolutionWithIncrediBuildAction"
+                text="Rebuild Solution with IncrediBuild" description="Rebuild the solution with IncrediBuild"/>
+        <action id="IncrediBuild.CleanSolution" class="org.riderxge.incredibuild.actions.CleanSolutionWithIncrediBuildAction"
+                text="Clean Solution with IncrediBuild" description="Clean the solution with IncrediBuild"/>
+        <action id="IncrediBuild.BuildSolutionFull" class="org.riderxge.incredibuild.actions.BuildSolutionFullyWithIncrediBuildAction"
+                text="Build Entire Solution via BuildConsole" description="Build all projects (C# and C++) through IncrediBuild's BuildConsole regardless of the dispatch mode"/>
+
+        <action id="IncrediBuild.BuildSelection" class="org.riderxge.incredibuild.actions.BuildSelectionWithIncrediBuildAction"
+                text="Build Selection with IncrediBuild" description="Build the selected project(s) with IncrediBuild"
+                icon="org.riderxge.incredibuild.ui.IncrediBuildIcons.Logo"/>
+        <action id="IncrediBuild.RebuildSelection" class="org.riderxge.incredibuild.actions.RebuildSelectionWithIncrediBuildAction"
+                text="Rebuild Selection with IncrediBuild" description="Rebuild the selected project(s) with IncrediBuild"/>
+        <action id="IncrediBuild.CleanSelection" class="org.riderxge.incredibuild.actions.CleanSelectionWithIncrediBuildAction"
+                text="Clean Selection with IncrediBuild" description="Clean the selected project(s) with IncrediBuild"/>
+        <action id="IncrediBuild.BuildSelectionNoDeps" class="org.riderxge.incredibuild.actions.BuildSelectionWithoutDependenciesAction"
+                text="Build Selection Without Dependencies with IncrediBuild" description="Build only the selected project(s)"/>
+        <action id="IncrediBuild.DispatchCpp" class="org.riderxge.incredibuild.actions.DispatchCppDependenciesAction"
+                text="Dispatch C++ Dependencies to IncrediBuild" description="Build only the C++ dependency projects of the selection through IncrediBuild"/>
+
+        <action id="IncrediBuild.Cancel" class="org.riderxge.incredibuild.actions.CancelIncrediBuildAction"
+                text="Cancel IncrediBuild Build" description="Stop the running IncrediBuild build" icon="AllIcons.Actions.Suspend"/>
+        <action id="IncrediBuild.OpenMonitor" class="org.riderxge.incredibuild.actions.OpenBuildMonitorAction"
+                text="Open IncrediBuild Build Monitor" description="Open the IncrediBuild Build Monitor" icon="AllIcons.Toolwindows.ToolWindowProfiler"/>
+        <action id="IncrediBuild.AgentStatus" class="org.riderxge.incredibuild.actions.AgentStatusAction"
+                text="IncrediBuild Agent Status" description="Show status of the local IncrediBuild agent and license" icon="AllIcons.General.InspectionsEye"/>
+        <action id="IncrediBuild.Settings" class="org.riderxge.incredibuild.actions.IncrediBuildSettingsAction"
+                text="IncrediBuild Settings..." description="Open IncrediBuild settings" icon="AllIcons.General.Settings"/>
+
+        <!-- Build main menu -->
+        <group id="IncrediBuild.BuildMenu" text="IncrediBuild" popup="true" icon="org.riderxge.incredibuild.ui.IncrediBuildIcons.Logo">
+            <reference ref="IncrediBuild.BuildSolution"/>
+            <reference ref="IncrediBuild.RebuildSolution"/>
+            <reference ref="IncrediBuild.CleanSolution"/>
+            <separator/>
+            <reference ref="IncrediBuild.BuildSolutionFull"/>
+            <separator/>
+            <reference ref="IncrediBuild.Cancel"/>
+            <separator/>
+            <reference ref="IncrediBuild.OpenMonitor"/>
+            <reference ref="IncrediBuild.AgentStatus"/>
+            <reference ref="IncrediBuild.Settings"/>
+            <add-to-group group-id="build" anchor="last"/>
+        </group>
+
+        <!-- Solution Explorer context menu -->
+        <group id="IncrediBuild.SolutionExplorerMenu" text="IncrediBuild" popup="true" icon="org.riderxge.incredibuild.ui.IncrediBuildIcons.Logo">
+            <reference ref="IncrediBuild.BuildSelection"/>
+            <reference ref="IncrediBuild.RebuildSelection"/>
+            <reference ref="IncrediBuild.CleanSelection"/>
+            <separator/>
+            <reference ref="IncrediBuild.BuildSelectionNoDeps"/>
+            <reference ref="IncrediBuild.DispatchCpp"/>
+            <add-to-group group-id="SolutionExplorerPopupMenu" anchor="after" relative-to-action="AdvancedBuildActions"/>
+        </group>
+    </actions>
+</idea-plugin>
