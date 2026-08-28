@@ -13,6 +13,7 @@ val platformVersion: String by project
 val pluginSinceBuild: String by project
 val pluginUntilBuild: String by project
 val riderLocalPath: String by project
+val riderBundledModules: String by project
 
 group = pluginGroup
 version = pluginVersion
@@ -32,8 +33,9 @@ dependencies {
         } else {
             rider(platformVersion)
         }
-        // Rider 2026.x moved the project-model/solution APIs into a separate content module.
-        bundledModule("intellij.rider.rdclient.dotnet")
+        // Rider 2025.3+ exposes the project-model/solution APIs as a separate content module; on 2024.3 they are
+        // part of the main jars and the module must not be requested (see riderBundledModules in gradle.properties).
+        riderBundledModules.split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { bundledModule(it) }
         pluginVerifier()
         testFramework(TestFrameworkType.Platform)
     }
