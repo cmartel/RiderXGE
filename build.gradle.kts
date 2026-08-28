@@ -75,6 +75,15 @@ intellijPlatform {
 }
 
 tasks {
+    processResources {
+        // Rider 2024.3 has no separately declarable content modules: drop the <dependencies> block from plugin.xml
+        // when riderBundledModules is empty (the classes are part of the main jars there).
+        if (riderBundledModules.isBlank()) {
+            filesMatching("META-INF/plugin.xml") {
+                filter { line -> if (line.contains("<dependencies>") || line.contains("</dependencies>") || line.contains("<module name=")) "" else line }
+            }
+        }
+    }
     withType<JavaCompile> {
         sourceCompatibility = "21"
         targetCompatibility = "21"
