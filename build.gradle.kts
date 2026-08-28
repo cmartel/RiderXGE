@@ -2,8 +2,8 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.0.21"
-    id("org.jetbrains.intellij.platform") version "2.2.1"
+    id("org.jetbrains.kotlin.jvm") version "2.4.10"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
 val pluginGroup: String by project
@@ -31,7 +31,8 @@ dependencies {
         } else {
             rider(platformVersion)
         }
-        instrumentationTools()
+        // Rider 2026.x moved the project-model/solution APIs into a separate content module.
+        bundledModule("intellij.rider.rdclient.dotnet")
         pluginVerifier()
         testFramework(TestFrameworkType.Platform)
     }
@@ -39,7 +40,7 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(25)
 }
 
 intellijPlatform {
@@ -51,7 +52,7 @@ intellijPlatform {
         version = pluginVersion
         ideaVersion {
             sinceBuild = pluginSinceBuild
-            untilBuild = pluginUntilBuild
+            untilBuild = provider { pluginUntilBuild.trim().ifEmpty { null } }
         }
     }
     pluginVerification {
@@ -63,8 +64,8 @@ intellijPlatform {
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+        sourceCompatibility = "25"
+        targetCompatibility = "25"
     }
     test {
         useJUnit()

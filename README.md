@@ -53,7 +53,7 @@ before-launch task for run configurations instead.
 
 ## Requirements
 
-* JetBrains Rider 2024.3.x (build 243) on Windows.
+* JetBrains Rider 2026.2+ (build 262 or newer) on Windows. The `rider2024.3` line of releases targets Rider 2024.3 (build 243).
 * [IncrediBuild for Windows](https://www.incredibuild.com/) Agent installed locally (`BuildConsole.exe` is auto-detected via the
   registry / `%ProgramFiles(x86)%\IncrediBuild`, or set the path in settings).
 * Visual Studio Build Tools / MSVC for the C++ projects (as for any IncrediBuild VS build).
@@ -68,8 +68,14 @@ before-launch task for run configurations instead.
 .\gradlew.bat runIde   # launches a sandboxed Rider with the plugin
 ```
 
-A JDK 17 is required (`JAVA_HOME`). The `riderLocalPath` property can be overridden with `-PriderLocalPath=...` or
-cleared to force the download of the version in `platformVersion`.
+A JDK 25 is required (`JAVA_HOME`) because Rider 2026.2 is built for Java 25. The `riderLocalPath` property can be
+overridden with `-PriderLocalPath=...` or cleared to force the download of the version in `platformVersion`.
+
+### Supporting older Rider versions
+
+Rider 2026.x moved the frontend to Java 25, split the project-model/solution APIs into the `intellij.rider.rdclient.dotnet`
+module and changed `BuildParameters`; a single binary cannot target both 2024.3 and 2026.2. The `rider2024.3` branch keeps
+the 2024.3 (build 243) variant: the three source diffs are small and can be cherry-picked in either direction.
 
 ## Sample solution
 
