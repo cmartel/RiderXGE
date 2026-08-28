@@ -234,7 +234,7 @@ class IncrediBuildRunner(private val project: Project) : Disposable {
         indicator.text = "Rider build: ${if (managedRoots.isEmpty()) "solution" else managedRoots.joinToString { it.name }}"
         val riderOutcome = timed(tab, "Rider phase") {
             try {
-                runRiderBuild(request.copy(withoutDependencies = riderWithoutDependencies), managedRoots.map { it.path }, settings.riderDiagnosticsBuild).get()
+                runRiderBuild(request.copy(withoutDependencies = riderWithoutDependencies), managedRoots.map { it.path }, settings.riderDiagnosticsBuild, tab).get()
             } catch (t: Throwable) {
                 LOG.warn("Rider build failed", t)
                 BuildOutcome.FAILED
@@ -362,7 +362,7 @@ class IncrediBuildRunner(private val project: Project) : Disposable {
     }
 
     /** Runs Rider's own build for [projectPaths] (empty = whole solution) and maps the result. */
-    private fun runRiderBuild(request: IncrediBuildRequest, projectPaths: List<Path>, diagnostics: Boolean): CompletableFuture<BuildOutcome> {
+    private fun runRiderBuild(request: IncrediBuildRequest, projectPaths: List<Path>, diagnostics: Boolean, tab: IncrediBuildConsoleTab): CompletableFuture<BuildOutcome> {
         val future = CompletableFuture<BuildOutcome>()
         val target: BuildTargetBase = when (request.operation) {
             BuildOperation.BUILD -> BuildTarget()
@@ -372,9 +372,17 @@ class IncrediBuildRunner(private val project: Project) : Disposable {
         ApplicationManager.getApplication().invokeLater {
             try {
                 val host = BuildHost.getInstance(project)
+                // Rider's backend matches selected projects by the VFS path form (forward slashes, as produced by
+                // VirtualFile.getPath()); a java.nio.Path string with backslashes is not recognised and silently
+                // degrades into a whole-solution build.
+                val riderPaths = projectPaths.map { p ->
+                    com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByNioFile(p)?.path
+                        ?: com.intellij.openapi.util.io.FileUtil.toSystemIndependentName(p.toString())
+                }
+                tab.println("Rider build request: ${if (riderPaths.isEmpty()) "<solution>" else riderPaths.joinToString()}${if (request.withoutDependencies) " (without dependencies)" else ""}", ConsoleViewContentType.LOG_INFO_OUTPUT)
                 val params = RiderBuildParameters.create(
                     operation = target,
-                    selectedProjectsPaths = projectPaths.map { it.toString() },
+                    selectedProjectsPaths = riderPaths,
                     activateWindowOnStart = true,
                     withoutDependencies = request.withoutDependencies,
                     diagnosticsMode = diagnostics,
