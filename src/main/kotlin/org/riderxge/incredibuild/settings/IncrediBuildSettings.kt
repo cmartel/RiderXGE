@@ -42,6 +42,11 @@ class IncrediBuildSettingsState : BaseState() {
     /** Reroute Rider's stock Build/Rebuild/Clean commands (menu, build button, Ctrl+F9) through IncrediBuild. */
     var overrideStandardBuildActions by property(false)
     /**
+     * With [overrideStandardBuildActions]: also replace Rider's "Build Project"/"Build Solution" before-launch step of
+     * every run configuration (what Run/Debug executes) with the plugin's "Build with IncrediBuild" step.
+     */
+    var replaceBeforeRunBuildSteps by property(true)
+    /**
      * Hybrid mode: dispatch C++/CLI (`/clr`) projects to IncrediBuild (default). IncrediBuild runs the `/clr` translation
      * units locally but distributes the native ones, which for large bridge projects is most of the work. Turn off only if
      * a C++/CLI project is small and gets rebuilt by the Rider phase anyway (see the DEPENDENCIES mode for the real fix).

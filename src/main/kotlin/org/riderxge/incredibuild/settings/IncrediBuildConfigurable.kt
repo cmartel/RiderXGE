@@ -10,12 +10,19 @@ import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.dsl.builder.selected
 import com.intellij.ui.dsl.builder.toNonNullableProperty
 import com.intellij.ui.dsl.builder.toNullableProperty
 import org.riderxge.incredibuild.ib.IncrediBuildLocator
+import org.riderxge.incredibuild.run.BeforeRunTaskSwapper
 
 /** Settings | Build, Execution, Deployment | IncrediBuild */
 class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
+
+    override fun apply() {
+        super.apply()
+        BeforeRunTaskSwapper.syncAllProjects()
+    }
 
     override fun createPanel(): DialogPanel {
         val state = IncrediBuildSettings.getInstance().state
@@ -48,15 +55,26 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                         .bindItem(state::buildEngine.toNullableProperty())
                         .comment("Engine BuildConsole uses for Visual Studio solutions. MSBuild is recommended for SDK-style C# projects.")
                 }
+                lateinit var override: com.intellij.ui.dsl.builder.Cell<javax.swing.JCheckBox>
                 row {
-                    checkBox("Use IncrediBuild for Rider's standard build actions")
+                    override = checkBox("Use IncrediBuild for Rider's standard build actions")
                         .bindSelected(state::overrideStandardBuildActions)
                         .comment(
                             "Reroutes Build/Rebuild/Clean for the solution, the selection, the startup project and the current project " +
                                 "(menus, the toolbar build button, Ctrl+F9 / Ctrl+Shift+B) through IncrediBuild using the mode above. Rider's own build is used as a " +
-                                "fallback when nothing can be dispatched. Builds started internally by Rider (e.g. the default " +
-                                "before-launch step) are not affected – use the \"Build with IncrediBuild\" before-launch task there."
+                                "fallback when nothing can be dispatched."
                         )
+                }
+                indent {
+                    row {
+                        checkBox("Also use IncrediBuild for the build step before Run/Debug")
+                            .bindSelected(state::replaceBeforeRunBuildSteps)
+                            .comment(
+                                "Replaces Rider's \"Build Project\" / \"Build Solution\" step under Before launch in every run configuration " +
+                                    "(what F5 / Shift+F10 execute) with \"Build with IncrediBuild\". The steps are switched back when this is turned off."
+                            )
+                            .enabledIf(override.selected)
+                    }
                 }
                 row {
                     checkBox("Dispatch C++/CLI (/clr) projects to IncrediBuild in hybrid mode").bindSelected(state::dispatchClrProjects)

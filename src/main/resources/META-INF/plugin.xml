@@ -31,8 +31,13 @@
                     factoryClass="org.riderxge.incredibuild.ui.IncrediBuildToolWindowFactory"/>
         <stepsBeforeRunProvider implementation="org.riderxge.incredibuild.run.IncrediBuildBeforeRunTaskProvider"/>
         <postStartupActivity implementation="org.riderxge.incredibuild.actions.StandardBuildActionCustomizer"/>
+        <postStartupActivity implementation="org.riderxge.incredibuild.run.BeforeRunTaskSwapperStartup"/>
         <notificationGroup id="IncrediBuild" displayType="BALLOON"/>
     </extensions>
+
+    <projectListeners>
+        <listener class="org.riderxge.incredibuild.run.BeforeRunTaskSwapperListener" topic="com.intellij.execution.RunManagerListener"/>
+    </projectListeners>
 
     <actions>
         <action id="IncrediBuild.BuildSolution" class="org.riderxge.incredibuild.actions.BuildSolutionWithIncrediBuildAction"
