@@ -19,8 +19,11 @@ object RiderBuildParameters {
         withoutDependencies: Boolean,
         diagnosticsMode: Boolean = false,
     ): BuildParameters {
+        // 2025.3+: (operation, paths, diagnosticsMode, silentMode, activateWindowOnStart, withoutDependencies, noRestore)
+        // 2024.3:  the same plus a trailing nullable RdTargetFrameworkId.
         val ctor = BuildParameters::class.java.constructors
-            .filter { it.parameterCount == 7 && it.parameterTypes[0] == BuildTargetBase::class.java && it.parameterTypes[1] == List::class.java }
+            .filter { (it.parameterCount == 7 || it.parameterCount == 8) && it.parameterTypes[0] == BuildTargetBase::class.java && it.parameterTypes[1] == List::class.java }
+            .filter { it.parameterTypes.none { t -> t.simpleName == "DefaultConstructorMarker" } }
             .minByOrNull { it.parameterCount }
             ?: throw IllegalStateException("No compatible BuildParameters constructor found in this Rider version")
         val silentType = ctor.parameterTypes[3]
@@ -33,6 +36,8 @@ object RiderBuildParameters {
         }
         LOG.debug("Using BuildParameters constructor ${ctor.parameterTypes.joinToString { it.simpleName }}")
         // (operation, selectedProjectsPaths, diagnosticsMode, silentMode, activateWindowOnStart, withoutDependencies, noRestore)
-        return ctor.newInstance(operation, selectedProjectsPaths, diagnosticsMode, silent, activateWindowOnStart, withoutDependencies, false) as BuildParameters
+        val args = arrayListOf<Any?>(operation, selectedProjectsPaths, diagnosticsMode, silent, activateWindowOnStart, withoutDependencies, false)
+        while (args.size < ctor.parameterCount) args.add(null)
+        return ctor.newInstance(*args.toTypedArray()) as BuildParameters
     }
 }
