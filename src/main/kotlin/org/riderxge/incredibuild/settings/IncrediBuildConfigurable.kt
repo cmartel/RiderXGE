@@ -3,7 +3,7 @@ package org.riderxge.incredibuild.settings
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.ui.DialogPanel
-import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.bindIntText
 import com.intellij.ui.dsl.builder.bindItem
@@ -34,7 +34,7 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
             }
             group("Dispatch") {
                 row("Mode:") {
-                    comboBox(DispatchMode.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(DispatchMode.entries, textListCellRenderer<DispatchMode?> { it?.label ?: "" })
                         .bindItem(state::dispatchMode.toNullableProperty())
                         .comment(
                             "Hybrid: the C++ dependency projects of the selected target are dispatched to IncrediBuild, " +
@@ -42,7 +42,7 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                         )
                 }
                 row("Build engine:") {
-                    comboBox(BuildEngine.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(BuildEngine.entries, textListCellRenderer<BuildEngine?> { it?.label ?: "" })
                         .bindItem(state::buildEngine.toNullableProperty())
                         .comment("Engine BuildConsole uses for Visual Studio solutions. MSBuild is recommended for SDK-style C# projects.")
                 }
@@ -50,8 +50,8 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                     checkBox("Use IncrediBuild for Rider's standard build actions")
                         .bindSelected(state::overrideStandardBuildActions)
                         .comment(
-                            "Reroutes Build/Rebuild/Clean Solution and Build Selection (menus, the toolbar build button, " +
-                                "Ctrl+F9 / Ctrl+Shift+B) through IncrediBuild using the mode above. Rider's own build is used as a " +
+                            "Reroutes Build/Rebuild/Clean for the solution, the selection, the startup project and the current project " +
+                                "(menus, the toolbar build button, Ctrl+F9 / Ctrl+Shift+B) through IncrediBuild using the mode above. Rider's own build is used as a " +
                                 "fallback when nothing can be dispatched. Builds started internally by Rider (e.g. the default " +
                                 "before-launch step) are not affected – use the \"Build with IncrediBuild\" before-launch task there."
                         )
@@ -74,11 +74,11 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                     intTextField(0..1024).bindIntText(state::maxCpus).comment("0 = use the agent's global setting")
                 }
                 row("Avoid local execution:") {
-                    comboBox(TriState.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(TriState.entries, textListCellRenderer<TriState?> { it?.label ?: "" })
                         .bindItem(state::avoidLocal.toNullableProperty())
                 }
                 row("Standalone mode:") {
-                    comboBox(TriState.entries, SimpleListCellRenderer.create("") { it.label })
+                    comboBox(TriState.entries, textListCellRenderer<TriState?> { it?.label ?: "" })
                         .bindItem(state::standalone.toNullableProperty())
                         .comment("Standalone builds run on the local machine only (useful when no helpers are reachable).")
                 }

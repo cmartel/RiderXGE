@@ -30,7 +30,7 @@
                     icon="/icons/toolWindowIncrediBuild.svg"
                     factoryClass="org.riderxge.incredibuild.ui.IncrediBuildToolWindowFactory"/>
         <stepsBeforeRunProvider implementation="org.riderxge.incredibuild.run.IncrediBuildBeforeRunTaskProvider"/>
-        <actionConfigurationCustomizer implementation="org.riderxge.incredibuild.actions.StandardBuildActionCustomizer"/>
+        <postStartupActivity implementation="org.riderxge.incredibuild.actions.StandardBuildActionCustomizer"/>
         <notificationGroup id="IncrediBuild" displayType="BALLOON"/>
     </extensions>
 

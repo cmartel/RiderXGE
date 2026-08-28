@@ -18,7 +18,7 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
 | Feature | Where |
 |---|---|
 | Build / Rebuild / Clean **solution** with IncrediBuild | *Build ▸ IncrediBuild* menu (`Ctrl+Alt+Shift+B` for Build) |
-| **Take over Rider's standard build commands** (Build/Rebuild/Clean Solution, Build Selection, toolbar build button, `Ctrl+F9` / `Ctrl+Shift+B`) | Settings ▸ IncrediBuild ▸ *Use IncrediBuild for Rider's standard build actions* |
+| **Take over Rider's standard build commands** (Build/Rebuild/Clean Solution, Selection, Startup Project and Current Project incl. the *Only…* variants, toolbar build button, `Ctrl+F9` / `Ctrl+Shift+B`) | Settings ▸ IncrediBuild ▸ *Use IncrediBuild for Rider's standard build actions* |
 | Build / Rebuild / Clean **selected projects** with IncrediBuild | Solution Explorer context menu ▸ *IncrediBuild* |
 | Build selection *without* dependencies (`/NORECURSE`) | Solution Explorer context menu ▸ *IncrediBuild* |
 | **Dispatch C++ dependencies only** (no Rider build afterwards) | Solution Explorer context menu ▸ *IncrediBuild* |
@@ -43,8 +43,9 @@ not built under that solution configuration (no `Build.0` entry) are skipped.
 ### Taking over Rider's own build commands
 
 With **Use IncrediBuild for Rider's standard build actions** enabled (off by default), the plugin wraps Rider's stock
-build actions (`BuildWholeSolutionAction`, the toolbar build button, `RebuildSolutionAction`, `CleanSolutionAction` and
-the *Build/Rebuild/Clean Selection* context actions) so that the familiar commands and shortcuts dispatch through
+build actions (`BuildWholeSolutionAction`, the toolbar build button, `RebuildSolutionAction`, `CleanSolutionAction`,
+the *Build/Rebuild/Clean Selection* context actions and the *Startup Project* / *Current Project* actions including their
+*Only …* (no dependencies) variants) so that the familiar commands and shortcuts dispatch through
 IncrediBuild using the configured mode; menu entries show an *(IncrediBuild)* suffix while active. The original action
 is used as a fallback whenever the plugin cannot resolve a target (e.g. *Build Selection* invoked from a context without
 a Solution Explorer selection). Builds Rider starts internally – the default *Build Solution* before-launch step,
@@ -53,7 +54,8 @@ before-launch task for run configurations instead.
 
 ## Requirements
 
-* JetBrains Rider 2026.2+ (build 262 or newer) on Windows. The `rider2024.3` line of releases targets Rider 2024.3 (build 243).
+* JetBrains Rider 2025.3 or newer (builds 253+, verified on 2025.3, 2026.1 and 2026.2) on Windows. Rider 2024.3 (build 243) is
+  served by the separate `rider2024.3` branch/release line.
 * [IncrediBuild for Windows](https://www.incredibuild.com/) Agent installed locally (`BuildConsole.exe` is auto-detected via the
   registry / `%ProgramFiles(x86)%\IncrediBuild`, or set the path in settings).
 * Visual Studio Build Tools / MSVC for the C++ projects (as for any IncrediBuild VS build).
@@ -68,14 +70,22 @@ before-launch task for run configurations instead.
 .\gradlew.bat runIde   # launches a sandboxed Rider with the plugin
 ```
 
-A JDK 25 is required (`JAVA_HOME`) because Rider 2026.2 is built for Java 25. The `riderLocalPath` property can be
-overridden with `-PriderLocalPath=...` or cleared to force the download of the version in `platformVersion`.
+A JDK 21 is required (`JAVA_HOME`). The plugin is compiled against the oldest supported Rider (`platformVersion`, Java 21
+bytecode) so the same binary loads on the Java 25 based Rider 2026.x; `verifyPlugin` checks it against 2025.3, 2026.1 and
+2026.2. `riderLocalPath` can point at a local install instead of downloading.
 
 ### Supporting older Rider versions
 
-Rider 2026.x moved the frontend to Java 25, split the project-model/solution APIs into the `intellij.rider.rdclient.dotnet`
-module and changed `BuildParameters`; a single binary cannot target both 2024.3 and 2026.2. The `rider2024.3` branch keeps
-the 2024.3 (build 243) variant: the three source diffs are small and can be cherry-picked in either direction.
+| Rider | Java | `BuildParameters` ctor | project-model module split | Served by |
+|---|---|---|---|---|
+| 2024.3 (243) | 21 | old | no | `rider2024.3` branch |
+| 2025.3 (253) | 21 | `Boolean` silent mode | yes | `main` |
+| 2026.1 (261) | 25 | `Boolean` silent mode | yes | `main` |
+| 2026.2 (262) | 25 | `SilentMode` enum | yes | `main` |
+
+`main` handles the 2026.2 constructor change reflectively (`RiderBuildParameters`), so one zip covers 2025.3 → 2026.2+.
+Only Rider 2024.3 needs the separate `rider2024.3` branch (older `BuildParameters`, no module split); its diffs are small
+and can be cherry-picked in either direction. 2025.1/2025.2 have not been verified.
 
 ## Sample solution
 

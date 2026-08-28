@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -40,7 +41,12 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(21)
+    compilerOptions {
+        // Stay loadable with the Kotlin stdlib bundled in the oldest supported Rider.
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
+    }
 }
 
 intellijPlatform {
@@ -57,15 +63,19 @@ intellijPlatform {
     }
     pluginVerification {
         ides {
-            recommended()
+            // The single binary is compiled against the oldest supported Rider (Java 21 bytecode) and verified
+            // against the newer lines it must keep running on (Rider 2026.x runs on Java 25 and can load it).
+            create(IntelliJPlatformType.Rider, platformVersion)
+            create(IntelliJPlatformType.Rider, "2026.1.5")
+            create(IntelliJPlatformType.Rider, "2026.2.1")
         }
     }
 }
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "25"
-        targetCompatibility = "25"
+        sourceCompatibility = "21"
+        targetCompatibility = "21"
     }
     test {
         useJUnit()
