@@ -1,7 +1,7 @@
-.gradle/
-build/
+/.gradle/
+/build/
 .idea/
-.intellijPlatform/
+/.intellijPlatform/
 *.iml
 out/
 samples/**/bin/
