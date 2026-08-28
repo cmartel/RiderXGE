@@ -16,6 +16,13 @@ enum class DispatchMode(val label: String) {
      */
     HYBRID("C++ projects via IncrediBuild, managed projects via Rider"),
 
+    /**
+     * Every dependency of the requested projects – native, C++/CLI and managed – is built through BuildConsole, then
+     * Rider builds only the requested projects themselves (without dependencies). One engine owns everything below the
+     * targets, so nothing is compiled twice across the C++/CLI ↔ C# boundary.
+     */
+    DEPENDENCIES("All dependencies via IncrediBuild, selected projects via Rider"),
+
     /** Build everything (C# and C++) through `BuildConsole.exe`, i.e. through IncrediBuild's MSBuild integration. */
     FULL("Entire build via IncrediBuild (BuildConsole)");
 }
@@ -35,10 +42,11 @@ class IncrediBuildSettingsState : BaseState() {
     /** Reroute Rider's stock Build/Rebuild/Clean commands (menu, build button, Ctrl+F9) through IncrediBuild. */
     var overrideStandardBuildActions by property(false)
     /**
-     * Hybrid mode: also dispatch C++/CLI (`/clr`) projects to IncrediBuild. Off by default: such projects reference managed
-     * assemblies that Rider rebuilds in the second phase, which would invalidate their tracker logs and rebuild them twice.
+     * Hybrid mode: dispatch C++/CLI (`/clr`) projects to IncrediBuild (default). IncrediBuild runs the `/clr` translation
+     * units locally but distributes the native ones, which for large bridge projects is most of the work. Turn off only if
+     * a C++/CLI project is small and gets rebuilt by the Rider phase anyway (see the DEPENDENCIES mode for the real fix).
      */
-    var dispatchClrProjects by property(false)
+    var dispatchClrProjects by property(true)
     var buildEngine by enum(BuildEngine.MSBUILD_64)
     /** Pass `/restore` to MSBuild so SDK-style projects get their NuGet assets before building (NETSDK1004 otherwise). */
     var restorePackages by property(true)

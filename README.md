@@ -34,9 +34,15 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
   to `BuildConsole.exe <sln> /PRJ=<cpp projects> /CFG=<active configuration>`. When that succeeds, the managed
   project(s) are built through Rider's regular build pipeline (`BuildHost`), which finds the C++ outputs up to date.
   If there is nothing native to dispatch, the build goes straight to Rider.
-  C++/CLI projects (`<CLRSupport>` set) are left to the Rider phase by default: they reference managed assemblies that Rider
-  (re)builds in that phase, so dispatching them first would only get them compiled twice. Their native dependencies are still
-  dispatched. *Settings > Dispatch C++/CLI projects to IncrediBuild* turns this off.
+  C++/CLI projects (`<CLRSupport>` set) are dispatched too: IncrediBuild runs their `/clr` translation units locally but
+  distributes the native ones, which for large bridge projects is most of the work. *Settings > Dispatch C++/CLI projects
+  to IncrediBuild* can leave them to the Rider phase instead.
+* **Dependencies** – *all* dependencies of the requested project(s) – native, C++/CLI and managed – are built through
+  `BuildConsole.exe` (`/PRJ=<every transitive dependency>`), then Rider builds only the requested project(s) themselves
+  *without dependencies*. One engine owns everything below the target, so nothing is compiled twice across the
+  C++/CLI ↔ C# boundary. Use this when C++/CLI projects sit on top of C# projects (the second phase of *Hybrid* would
+  otherwise rebuild the managed assemblies they reference and invalidate them). For a whole-solution request this is
+  identical to *Full*.
 * **Full** – the whole request runs through `BuildConsole.exe` with IncrediBuild's MSBuild integration
   (`/USEMSBUILD`). C++ tasks are distributed; C# projects are built by MSBuild locally.
 

@@ -37,8 +37,10 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                     comboBox(DispatchMode.entries, textListCellRenderer<DispatchMode?> { it?.label ?: "" })
                         .bindItem(state::dispatchMode.toNullableProperty())
                         .comment(
-                            "Hybrid: the C++ dependency projects of the selected target are dispatched to IncrediBuild, " +
-                                "then Rider builds the managed projects. Full: the whole solution is built through BuildConsole."
+                            "Hybrid: the C++ dependency projects of the target are dispatched to IncrediBuild, then Rider builds the managed projects. " +
+                                "Dependencies: everything the target depends on (native, C++/CLI and managed) is built through BuildConsole, " +
+                                "then Rider builds only the target - use this when C++/CLI projects sit on top of C# projects. " +
+                                "Full: the whole solution is built through BuildConsole."
                         )
                 }
                 row("Build engine:") {
@@ -59,8 +61,8 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                 row {
                     checkBox("Dispatch C++/CLI (/clr) projects to IncrediBuild in hybrid mode").bindSelected(state::dispatchClrProjects)
                         .comment(
-                            "Off (recommended): C++/CLI projects are left to the Rider phase, after the managed assemblies they reference are " +
-                                "built, so they compile once. Their native dependencies are still dispatched. IncrediBuild cannot distribute /clr compiles anyway."
+                            "On (default): the native translation units of C++/CLI projects are distributed; the /clr ones run locally. " +
+                                "Off leaves such projects to the Rider phase entirely."
                         )
                 }
                 row {

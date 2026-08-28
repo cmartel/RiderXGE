@@ -162,6 +162,27 @@ class IncrediBuildRunner(private val project: Project) : Disposable {
                 tab.println("Mode: entire build through BuildConsole${if (names.isEmpty()) "" else " for ${names.joinToString()}"}", ConsoleViewContentType.SYSTEM_OUTPUT)
                 timed(tab, "IncrediBuild phase") { runBuildConsole(cmd, solution, cfg, request, names, tab, indicator) }
             }
+            DispatchMode.DEPENDENCIES -> {
+                if (request.isWholeSolution || request.withoutDependencies) {
+                    val names = if (request.isWholeSolution) emptyList() else roots.map { it.name }
+                    tab.println("Mode: dependencies - ${if (request.isWholeSolution) "whole solution through BuildConsole" else "nothing to dispatch (build without dependencies)"}", ConsoleViewContentType.SYSTEM_OUTPUT)
+                    if (request.isWholeSolution) timed(tab, "IncrediBuild phase") { runBuildConsole(cmd, solution, cfg, request, names, tab, indicator) } else BuildOutcome.SKIPPED
+                } else {
+                    val graph = ProjectGraph.build(solution)
+                    val deps = graph.transitiveDependencies(roots).filter { solution.isBuilt(it, cfg) }
+                    graph.danglingReferences.forEach { (from, refs) ->
+                        tab.println("Note: ${from.fileName} references project(s) outside the solution: ${refs.joinToString { it.fileName.toString() }}", ConsoleViewContentType.LOG_WARNING_OUTPUT)
+                    }
+                    if (settings.explainDependencies) explainDependencies(tab, graph, roots, deps, cfg, false)
+                    if (deps.isEmpty()) {
+                        tab.println("Mode: dependencies - the target(s) have no dependencies inside the solution; nothing to dispatch.", ConsoleViewContentType.SYSTEM_OUTPUT)
+                        BuildOutcome.SKIPPED
+                    } else {
+                        tab.println("Mode: dependencies - building all dependencies of ${roots.joinToString { it.name }} through BuildConsole (${deps.count { it.isCpp }} C++, ${deps.count { !it.isCpp }} managed): ${deps.joinToString { it.name }}", ConsoleViewContentType.SYSTEM_OUTPUT)
+                        timed(tab, "IncrediBuild phase") { runBuildConsole(cmd, solution, cfg, request, deps.map { it.name }, tab, indicator) }
+                    }
+                }
+            }
             DispatchMode.HYBRID -> {
                 val graph = ProjectGraph.build(solution)
                 val closure = if (request.withoutDependencies) roots.filter { it.isCpp } else graph.cppProjectsFor(roots)
@@ -189,22 +210,31 @@ class IncrediBuildRunner(private val project: Project) : Disposable {
             finish(tab, ibOutcome, result)
             return
         }
-        if (mode == DispatchMode.FULL || request.cppOnly) {
+        if (mode == DispatchMode.FULL || request.cppOnly || (mode == DispatchMode.DEPENDENCIES && request.isWholeSolution)) {
             finish(tab, ibOutcome, result)
             return
         }
 
-        // Hybrid: hand the managed projects (and anything else) over to Rider's build.
-        val managedRoots = if (request.isWholeSolution) emptyList() else roots.filter { !it.isCpp || (!settings.dispatchClrProjects && clrRoots.contains(it.path)) }
-        if (!request.isWholeSolution && managedRoots.isEmpty()) {
-            finish(tab, ibOutcome, result)
-            return
+        // Hand the remaining projects over to Rider's build.
+        val riderRoots: List<SolutionProject>
+        val riderWithoutDependencies: Boolean
+        if (mode == DispatchMode.DEPENDENCIES) {
+            riderRoots = roots
+            riderWithoutDependencies = true
+        } else {
+            riderRoots = if (request.isWholeSolution) emptyList() else roots.filter { !it.isCpp || (!settings.dispatchClrProjects && clrRoots.contains(it.path)) }
+            riderWithoutDependencies = request.withoutDependencies
+            if (!request.isWholeSolution && riderRoots.isEmpty()) {
+                finish(tab, ibOutcome, result)
+                return
+            }
         }
-        tab.println("\nHanding over to Rider build: ${if (managedRoots.isEmpty()) "whole solution" else managedRoots.joinToString { it.name }} (C++ outputs are up to date)", ConsoleViewContentType.SYSTEM_OUTPUT)
+        val managedRoots = riderRoots
+        tab.println("\nHanding over to Rider build: ${if (managedRoots.isEmpty()) "whole solution" else managedRoots.joinToString { it.name }}${if (riderWithoutDependencies) " (without dependencies - they were built by IncrediBuild)" else " (C++ outputs are up to date)"}", ConsoleViewContentType.SYSTEM_OUTPUT)
         indicator.text = "Rider build: ${if (managedRoots.isEmpty()) "solution" else managedRoots.joinToString { it.name }}"
         val riderOutcome = timed(tab, "Rider phase") {
             try {
-                runRiderBuild(request, managedRoots.map { it.path }, settings.riderDiagnosticsBuild).get()
+                runRiderBuild(request.copy(withoutDependencies = riderWithoutDependencies), managedRoots.map { it.path }, settings.riderDiagnosticsBuild).get()
             } catch (t: Throwable) {
                 LOG.warn("Rider build failed", t)
                 BuildOutcome.FAILED
