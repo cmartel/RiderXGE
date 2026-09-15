@@ -40,8 +40,13 @@ class BeforeRunTaskSwapper(private val project: Project) {
     private val enabled: Boolean
         get() = IncrediBuildSettings.getInstance().state.let { it.overrideStandardBuildActions && it.replaceBeforeRunBuildSteps }
 
-    fun syncAll() {
-        val runManager = RunManager.getInstance(project)
+    /**
+     * [runManager] defaults to a fresh lookup, but callers that already hold a reference (e.g. a
+     * [RunManagerListener] callback firing during the service's own initialization) must pass it in – calling
+     * [RunManager.getInstance] again from inside that callback re-enters the same async service initialization
+     * and IntelliJ's instance container detects it as a cycle (`CycleInitializationException`).
+     */
+    fun syncAll(runManager: RunManager = RunManager.getInstance(project)) {
         for (settings in runManager.allSettings) sync(settings)
     }
 
@@ -142,6 +147,6 @@ class BeforeRunTaskSwapperListener(private val project: Project) : RunManagerLis
     }
 
     override fun stateLoaded(runManager: RunManager, isFirstLoadState: Boolean) {
-        BeforeRunTaskSwapper.getInstance(project).syncAll()
+        BeforeRunTaskSwapper.getInstance(project).syncAll(runManager)
     }
 }
