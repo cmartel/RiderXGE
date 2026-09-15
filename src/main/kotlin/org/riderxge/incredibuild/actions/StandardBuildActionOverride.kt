@@ -47,6 +47,16 @@ class StandardBuildActionCustomizer : ProjectActivity {
                 LOG.warn("Failed to wrap Rider build action '${target.id}'", t)
             }
         }
+        try {
+            val original = actionManager.getAction(CANCEL_BUILD_ACTION_ID)
+            if (original == null) {
+                LOG.info("Rider build action '$CANCEL_BUILD_ACTION_ID' not found; skipping IncrediBuild override")
+            } else if (original !is CancelBuildActionOverride) {
+                actionManager.replaceAction(CANCEL_BUILD_ACTION_ID, CancelBuildActionOverride(original))
+            }
+        } catch (t: Throwable) {
+            LOG.warn("Failed to wrap Rider build action '$CANCEL_BUILD_ACTION_ID'", t)
+        }
     }
 
     class Target(val id: String, val operation: BuildOperation, val scope: OverrideScope, val withoutDependencies: Boolean = false)
@@ -54,6 +64,9 @@ class StandardBuildActionCustomizer : ProjectActivity {
     companion object {
         private val LOG = logger<StandardBuildActionCustomizer>()
         private val installed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        /** Rider's "Cancel Build" action; owns Ctrl+F9 (default) and Ctrl+Break (Visual Studio keymap). */
+        const val CANCEL_BUILD_ACTION_ID = "CancelBuildAction"
 
         /** Rider action ids are stable since at least 2019.x (see intellij.rider.xml; verified on 243 and 262). */
         private val TARGETS: List<Target> = buildList {
@@ -123,4 +136,41 @@ class StandardBuildActionOverride(
         }
         return IncrediBuildRequest(operation = target.operation, projectPaths = paths, withoutDependencies = target.withoutDependencies)
     }
+}
+
+/**
+ * Wraps Rider's "Cancel Build" action (Ctrl+F9 / Ctrl+Break in the Visual Studio keymap) so it also stops a
+ * running IncrediBuild build. Unlike [StandardBuildActionOverride] this always delegates to the original action
+ * first – Rider's own build (e.g. the hybrid mode's managed-project phase) may be running alongside or instead of
+ * IncrediBuild's `BuildConsole.exe`, and that Rider-side cancellation is unaffected by the
+ * "Use IncrediBuild for Rider's standard build actions" setting.
+ *
+ * The delegate is only invoked when Rider itself actually has a build in flight ([BuildHost.isIdle] is false):
+ * calling Rider's cancel machinery while only the standalone `BuildConsole.exe` process is running (the common
+ * case for solution/full-mode dispatches) has been observed to leave [BuildHost] stuck in a non-idle state
+ * afterwards, permanently disabling every IncrediBuild action ([IncrediBuildActionBase.update] gates on
+ * [BuildHost.isIdle]).
+ */
+class CancelBuildActionOverride(delegate: AnAction) : AnActionWrapper(delegate) {
+
+    override fun update(e: AnActionEvent) {
+        super.update(e)
+        val project = e.project ?: return
+        if (IncrediBuildRunner.getInstance(project).isBuilding) {
+            e.presentation.isEnabledAndVisible = true
+        }
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project
+        if (project != null && !riderIsIdle(project)) {
+            super.actionPerformed(e)
+        }
+        if (project != null && IncrediBuildRunner.getInstance(project).isBuilding) {
+            IncrediBuildRunner.getInstance(project).cancel()
+        }
+    }
+
+    private fun riderIsIdle(project: Project): Boolean =
+        runCatching { com.jetbrains.rider.build.BuildHost.isIdle(project) }.getOrDefault(true)
 }
