@@ -25,6 +25,7 @@ With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to In
 | Build entire solution via BuildConsole regardless of mode | *Build ▸ IncrediBuild* |
 | "Build with IncrediBuild" **before-launch task** | Run/Debug configuration ▸ *Before launch* ▸ `+` |
 | IncrediBuild **tool window** with clickable `file(line,col): error CXXXX` diagnostics, cancel, Build Monitor, agent status | *View ▸ Tool Windows ▸ IncrediBuild* |
+| **Build Monitor docked inside Rider** (IncrediBuild's own monitor window, in a tool window tab) | *Build ▸ IncrediBuild ▸ Open IncrediBuild Build Monitor* |
 | Settings (BuildConsole path, dispatch mode, engine, agent overrides, output options) | *Settings ▸ Build, Execution, Deployment ▸ IncrediBuild* |
 
 ### Dispatch modes
@@ -64,6 +65,42 @@ and Rider puts a *Build Project* (or *Build Solution*) step there that calls its
 enabled, the plugin therefore also swaps that step for its own **Build with IncrediBuild** step in every run
 configuration (existing ones on startup, new ones as they are created) and swaps it back when the option is turned off
 (*Also use IncrediBuild for the build step before Run/Debug*, on by default). Build-before-unit-tests is still Rider's own.
+
+### Docked Build Monitor
+
+IncrediBuild ships its own Build Monitor (agent/CPU lanes, timings, build cache activity). Rather than reimplement it,
+the plugin shows **the real thing** inside a *Build Monitor* tab of the IncrediBuild tool window: the monitor runs as its
+own process and its window is reparented into the tab, the way the Visual Studio add-in docks it.
+
+* *Settings ▸ IncrediBuild ▸ Build Monitor* chooses **Docked in the IncrediBuild tool window** (default) or
+  **Separate window**.
+* Opening it from the menu starts a monitor and docks it. With *Open the Build Monitor when a build starts
+  (/OPENMONITOR)* enabled, the monitor that BuildConsole spawns for the build is docked instead, so it shows the live
+  build.
+* **Open in Separate Window** in the tab's toolbar hands the window back as a normal Build Monitor at any time, and
+  **Restart Build Monitor** replaces it with a fresh one. Closing the tab stops the monitor it started.
+* While docked the monitor is off the taskbar too: a VCL application carries its taskbar button on a hidden
+  application window rather than on the form, so that window is hidden along with the rest of the chrome and restored
+  when the window is handed back.
+* Later builds reuse the monitor that is already docked (BuildConsole starts a second one only if it has to, and that
+  one takes the tab over), so the tab follows every build rather than accumulating windows.
+* The borrowed window is always restored (styles, size and position) when the tab closes, the tool window is undocked or
+  Rider exits, so a failed or closed embedding degrades to an ordinary Build Monitor window rather than losing it.
+
+Only the **view pane** is shown – agents, timeline, build-cache lane and progress bar – the same part Incredibuild's own
+Visual Studio add-in displays. The monitor's title bar and menu are painted into its window frame (it is skinned, so
+clearing `WS_CAPTION` does nothing) and the command-line bar sits above the view, so the window is sized and positioned
+to leave exactly the view inside the tab and the rest clipped outside it. Those offsets are measured from the live
+window, never hardcoded. Reparenting the view control on its own would be the obvious route, but VCL owns that
+control's bounds and instantly resets any size given to it from outside.
+
+Because the monitor is a separate process, keyboard focus stays with Rider; mouse interaction works normally.
+
+Verify the mechanism on a machine with IncrediBuild installed with:
+
+```powershell
+.\gradlew.bat embedHarness   # docks a real Build Monitor into a test window and checks it through Win32
+```
 
 ## Requirements
 

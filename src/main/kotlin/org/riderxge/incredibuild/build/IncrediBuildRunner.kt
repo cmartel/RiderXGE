@@ -39,6 +39,7 @@ import org.riderxge.incredibuild.sln.SolutionConfiguration
 import org.riderxge.incredibuild.sln.SolutionModel
 import org.riderxge.incredibuild.sln.SolutionParser
 import org.riderxge.incredibuild.sln.SolutionProject
+import org.riderxge.incredibuild.ui.BuildMonitorHost
 import org.riderxge.incredibuild.ui.IncrediBuildConsoleTab
 import org.riderxge.incredibuild.ui.IncrediBuildToolWindow
 import java.nio.file.Files
@@ -346,7 +347,10 @@ class IncrediBuildRunner(private val project: Project) : Disposable {
                 }
             }
         })
+        // /OPENMONITOR makes BuildConsole spawn a Build Monitor for this build; dock it if that is what the user wants.
+        val monitorsBefore = if (IncrediBuildSettings.getInstance().state.openMonitor) BuildMonitorHost.monitorPids() else null
         handler.startNotify()
+        monitorsBefore?.let { BuildMonitorHost.getInstance(project).adoptSpawnedMonitor(it) }
         while (!handler.waitFor(200)) {
             if (indicator.isCanceled) cancel()
         }

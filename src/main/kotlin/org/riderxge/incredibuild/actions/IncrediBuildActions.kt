@@ -20,6 +20,7 @@ import org.riderxge.incredibuild.ib.BuildOperation
 import org.riderxge.incredibuild.ib.IncrediBuildLocator
 import org.riderxge.incredibuild.settings.DispatchMode
 import org.riderxge.incredibuild.settings.IncrediBuildConfigurable
+import org.riderxge.incredibuild.ui.BuildMonitorHost
 import org.riderxge.incredibuild.ui.IncrediBuildToolWindow
 import java.nio.file.Path
 
@@ -108,12 +109,18 @@ class OpenBuildMonitorAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val monitor = IncrediBuildLocator.buildMonitor() ?: return
-        try {
-            GeneralCommandLine(monitor.toString()).createProcess()
-        } catch (t: Throwable) {
-            LOG.warn("Cannot start Build Monitor", t)
-            notify(e.project, "Cannot start Build Monitor: ${t.message}", NotificationType.ERROR)
+        val project = e.project
+        if (project == null) {
+            // No project to dock into; the plain window is the only option.
+            try {
+                GeneralCommandLine(monitor.toString()).createProcess()
+            } catch (t: Throwable) {
+                LOG.warn("Cannot start Build Monitor", t)
+                notify(null, "Cannot start Build Monitor: ${t.message}", NotificationType.ERROR)
+            }
+            return
         }
+        BuildMonitorHost.getInstance(project).open(activate = true)
     }
 }
 

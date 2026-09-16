@@ -77,5 +77,44 @@ object IncrediBuildToolWindow {
         return tab
     }
 
+    /**
+     * Adds a general-purpose tab (used by the Build Monitor). Must be called on the EDT; returns null when the tool
+     * window is not registered, e.g. while the project is closing.
+     */
+    fun addTab(
+        project: Project,
+        title: String,
+        component: javax.swing.JComponent,
+        toolbarActions: com.intellij.openapi.actionSystem.ActionGroup?,
+        activate: Boolean,
+        closeable: Boolean,
+    ): com.intellij.ui.content.Content? {
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ID) ?: return null
+        val panel = SimpleToolWindowPanel(false, true)
+        if (toolbarActions != null) {
+            val toolbar = ActionManager.getInstance().createActionToolbar(ActionPlaces.TOOLWINDOW_TOOLBAR_BAR, toolbarActions, false)
+            toolbar.targetComponent = component
+            panel.toolbar = toolbar.component
+        }
+        panel.setContent(component)
+
+        val content = ContentFactory.getInstance().createContent(panel, title, false)
+        content.isCloseable = closeable
+        toolWindow.contentManager.addContent(content)
+        selectContent(project, content, activate)
+        return content
+    }
+
+    fun selectContent(project: Project, content: com.intellij.ui.content.Content, activate: Boolean) {
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ID) ?: return
+        if (content.isValid) toolWindow.contentManager.setSelectedContent(content)
+        if (activate) toolWindow.activate(null, false) else toolWindow.show(null)
+    }
+
+    fun removeContent(project: Project, content: com.intellij.ui.content.Content) {
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(ID) ?: return
+        if (content.isValid) toolWindow.contentManager.removeContent(content, true)
+    }
+
     private val TAB_KEY = com.intellij.openapi.util.Key.create<IncrediBuildConsoleTab>("IncrediBuild.tab")
 }

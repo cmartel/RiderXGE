@@ -115,6 +115,15 @@ class IncrediBuildConfigurable : BoundConfigurable("IncrediBuild") {
                 row { checkBox("Show executing agent for each task (/SHOWAGENT)").bindSelected(state::showAgent) }
                 row { checkBox("Show task execution times (/SHOWTIME)").bindSelected(state::showTime) }
                 row { checkBox("Open the IncrediBuild Build Monitor when a build starts (/OPENMONITOR)").bindSelected(state::openMonitor) }
+                row("Build Monitor:") {
+                    comboBox(MonitorPlacement.entries, textListCellRenderer<MonitorPlacement?> { it?.label ?: "" })
+                        .bindItem(state::monitorPlacement.toNullableProperty())
+                        .comment(
+                            "Docked shows IncrediBuild's own Build Monitor window inside a tab of the IncrediBuild tool window. " +
+                                "If it cannot be docked it opens as a separate window, and \"Open in Separate Window\" in the tab " +
+                                "hands it back at any time."
+                        )
+                }
                 row { checkBox("Activate the IncrediBuild tool window when a build starts").bindSelected(state::activateToolWindow) }
                 row { checkBox("Beep when the build completes (/BEEP)").bindSelected(state::beepOnFinish) }
             }

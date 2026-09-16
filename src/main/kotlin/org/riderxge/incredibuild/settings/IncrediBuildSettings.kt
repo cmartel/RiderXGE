@@ -29,6 +29,15 @@ enum class DispatchMode(val label: String) {
 
 enum class TriState(val label: String) { DEFAULT("Use agent settings"), ON("On"), OFF("Off") }
 
+/** Where IncrediBuild's Build Monitor is shown. */
+enum class MonitorPlacement(val label: String) {
+    /** Dock the monitor's window into a tab of the IncrediBuild tool window (Windows only). */
+    EMBEDDED("Docked in the IncrediBuild tool window"),
+
+    /** Leave it as the standalone Build Monitor window. */
+    WINDOW("Separate window");
+}
+
 enum class BuildEngine(val label: String, val switch: String?) {
     MSBUILD_64("MSBuild (64-bit)", "/USEMSBUILD=64"),
     MSBUILD_32("MSBuild (32-bit)", "/USEMSBUILD=32"),
@@ -58,6 +67,8 @@ class IncrediBuildSettingsState : BaseState() {
     var msBuildArgs by string("")
     var extraArgs by string("")
     var openMonitor by property(false)
+    /** Where the Build Monitor opens – docked in the tool window or as its own window. */
+    var monitorPlacement by enum(MonitorPlacement.EMBEDDED)
     var showAgent by property(true)
     var showTime by property(true)
     var stopOnErrors by property(false)

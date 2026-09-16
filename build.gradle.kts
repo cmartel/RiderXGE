@@ -40,6 +40,9 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
     }
     testImplementation("junit:junit:4.13.2")
+    // The plugin itself uses the Kotlin stdlib bundled with the IDE (kotlin.stdlib.default.dependency=false);
+    // tests and the embedHarness run outside the IDE and need one on their own classpath.
+    testRuntimeOnly(kotlin("stdlib"))
 }
 
 kotlin {
@@ -92,5 +95,24 @@ tasks {
     test {
         useJUnit()
         testLogging { events("passed", "failed", "skipped") }
+    }
+
+    // Manual check of the Build Monitor embedding against the real IncrediBuild install (needs a desktop session).
+    register<JavaExec>("embedHarness") {
+        group = "verification"
+        description = "Docks the real IncrediBuild Build Monitor into a test window and verifies it through Win32"
+        mainClass = "org.riderxge.incredibuild.EmbedHarness"
+        // The IDE provides the platform (and its JNA) at runtime; outside it both have to be supplied by hand.
+        classpath = sourceSets["test"].runtimeClasspath + sourceSets["main"].compileClasspath
+        doFirst {
+            val platformLib = sourceSets["main"].compileClasspath.files
+                .map { it.parentFile }
+                .distinct()
+                .firstOrNull { File(it, "jna/amd64/jnidispatch.dll").isFile }
+            if (platformLib != null) {
+                systemProperty("jna.boot.library.path", File(platformLib, "jna/amd64").absolutePath)
+                systemProperty("jna.nosys", "true")
+            }
+        }
     }
 }

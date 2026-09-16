@@ -41,24 +41,28 @@ class BeforeRunTaskSwapper(private val project: Project) {
         get() = IncrediBuildSettings.getInstance().state.let { it.overrideStandardBuildActions && it.replaceBeforeRunBuildSteps }
 
     /**
-     * [runManager] defaults to a fresh lookup, but callers that already hold a reference (e.g. a
-     * [RunManagerListener] callback firing during the service's own initialization) must pass it in – calling
-     * [RunManager.getInstance] again from inside that callback re-enters the same async service initialization
-     * and IntelliJ's instance container detects it as a cycle (`CycleInitializationException`).
+     * [runManager] is passed in by callers that already hold a reference (e.g. a [RunManagerListener] callback
+     * firing during the service's own initialization): calling [RunManager.getInstance] again from inside that
+     * callback re-enters the same async service initialization and IntelliJ's instance container detects it as a
+     * cycle (`CycleInitializationException`). It stays nullable rather than defaulting to the lookup so that the
+     * default-project check below runs before any lookup happens - that project is where the cycle was seen.
      */
-    fun syncAll(runManager: RunManager = RunManager.getInstance(project)) {
-        for (settings in runManager.allSettings) sync(settings)
+    fun syncAll(runManager: RunManager? = null) {
+        if (project.isDefault) return
+        val manager = runManager ?: RunManager.getInstance(project)
+        for (settings in manager.allSettings) sync(settings, manager)
     }
 
-    fun sync(settings: RunnerAndConfigurationSettings) {
-        if (settings.isTemplate) return
+    fun sync(settings: RunnerAndConfigurationSettings, runManager: RunManager? = null) {
+        if (project.isDefault || settings.isTemplate) return
         if (!updating.compareAndSet(false, true)) return
         try {
             val configuration = settings.configuration
             val tasks = configuration.beforeRunTasks
             val replacement = if (enabled) toIncrediBuild(configuration, tasks) else toRider(configuration, tasks)
             if (replacement != null) {
-                RunManagerEx.getInstanceEx(project).setBeforeRunTasks(configuration, replacement)
+                val manager = runManager as? RunManagerEx ?: RunManagerEx.getInstanceEx(project)
+                manager.setBeforeRunTasks(configuration, replacement)
                 LOG.info("Before-launch steps of '${configuration.name}' now: ${replacement.joinToString { it.javaClass.simpleName }}")
             }
         } catch (t: Throwable) {
@@ -122,7 +126,7 @@ class BeforeRunTaskSwapper(private val project: Project) {
         fun syncAllProjects() {
             ApplicationManager.getApplication().invokeLater {
                 for (project in ProjectManager.getInstance().openProjects) {
-                    if (!project.isDisposed) getInstance(project).syncAll()
+                    if (!project.isDisposed && !project.isDefault) getInstance(project).syncAll()
                 }
             }
         }
@@ -139,14 +143,18 @@ class BeforeRunTaskSwapperStartup : ProjectActivity {
 /** Follows run configurations that are created or edited later (Rider adds its build step to every new one). */
 class BeforeRunTaskSwapperListener(private val project: Project) : RunManagerListener {
     override fun runConfigurationAdded(settings: RunnerAndConfigurationSettings) {
+        if (project.isDefault) return
         BeforeRunTaskSwapper.getInstance(project).sync(settings)
     }
 
     override fun runConfigurationChanged(settings: RunnerAndConfigurationSettings) {
+        if (project.isDefault) return
         BeforeRunTaskSwapper.getInstance(project).sync(settings)
     }
 
     override fun stateLoaded(runManager: RunManager, isFirstLoadState: Boolean) {
+        if (project.isDefault) return
+        // Pass the manager on: it is still initializing, so looking it up again would be a cycle.
         BeforeRunTaskSwapper.getInstance(project).syncAll(runManager)
     }
 }
