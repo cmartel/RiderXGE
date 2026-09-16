@@ -13,6 +13,10 @@ App.csproj  ──►  CppCliBridge.vcxproj (C++/CLI)  ──►  NativeCore.vcx
 With the plugin, building `App` dispatches `NativeCore` and `CppCliBridge` to IncrediBuild (distributed
 `cl.exe`/`link.exe`), and Rider's own build engine then finishes the managed project against the fresh outputs.
 
+## Note
+
+This plugin is entirely vibe coded. I make no claims as to its functionality and robustness beyond the fact that it works for my own purposes. If JetBrains/Incredibuild comes out with a Rider equivalent to their CLion integration, I will happily retire this project and switch to that.
+
 ## Features
 
 | Feature | Where |
